@@ -1,47 +1,224 @@
-# Payload Blank Template
+# Payload CMS Website
 
-This template comes configured with the bare minimum to get started on anything you need.
+A website built with [Payload CMS 3](https://payloadcms.com/docs) and [Next.js](https://nextjs.org/docs). The website and the admin panel run as one Next.js app, and data is stored in a local SQLite file.
 
-## Quick start
+- **Website:** http://localhost:3000
+- **Admin panel:** http://localhost:3000/admin
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+---
 
-## Quick Start - local setup
+## Getting started
 
-To spin up this template locally, follow these steps:
+### Requirements
 
-### Clone
+- **Node.js 20.9 or newer** (check with `node -v`)
+- **npm** (this repo uses `package-lock.json`, so please don't use yarn or pnpm)
+- **Git**
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+### Setup
 
-### Development
+```bash
+# 1. Clone the repo
+git clone https://github.com/danz-wellevate/payload-cms.git
+cd payload-cms
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. The default `DATABASE_URL=file:./payload-cms.db` uses a local SQLite file — no database server needed.
+# 2. Create your local environment file
+cp .env.example .env
+```
 
-3. `npm install && npm run dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+Open `.env` and set `PAYLOAD_SECRET` to any long random string. Leave `DATABASE_URL` as it is.
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
+```bash
+# 3. Install dependencies
+npm install
 
-## How it works
+# 4. Start the dev server
+npm run dev
+```
 
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
+Then:
 
-### Collections
+1. Open http://localhost:3000/admin and create your admin user. The first account you create becomes the admin.
+2. Open http://localhost:3000 to see the site.
 
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
+On first start, the app automatically creates the **Home page** and **6 sample blog posts**, so you'll have content to work with right away.
 
-- #### Users (Authentication)
+> **Your database is local to your machine.** `payload-cms.db` and `.env` are gitignored and never committed, so content you create in your admin panel isn't shared with the team. Only code is shared through git.
 
-  Users are auth-enabled collections that have access to the admin panel.
+---
 
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
+## Useful scripts
 
-- #### Media
+| Command                      | What it does                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `npm run dev`                | Start the dev server at http://localhost:3000                                                   |
+| `npm run build`              | Production build                                                                                |
+| `npm run start`              | Run the production build                                                                        |
+| `npm run seed`               | Create the Home page and sample posts if they're missing (never overwrites existing content)    |
+| `npm run generate:types`     | Regenerate `src/payload-types.ts`. **Run this after changing any collection, global or block.** |
+| `npm run generate:importmap` | Regenerate the admin import map. **Run this after adding a custom admin component.**            |
+| `npx tsc --noEmit`           | Type-check the project                                                                          |
+| `npm run test:int`           | Integration tests (Vitest)                                                                      |
+| `npm run test:e2e`           | End-to-end tests (Playwright)                                                                   |
 
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
+> If `npm run seed` fails with "index already exists" while the dev server is running, run it again. The script and the dev server both update the database schema, and they sometimes collide.
 
-## Questions
+---
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+## Project structure
+
+```
+src/
+├── app/
+│   ├── (frontend)/          # The public website
+│   │   ├── layout.tsx       # Applies the theme (fonts, colors), header and footer
+│   │   ├── page.tsx         # Homepage (renders the "home" page from the CMS)
+│   │   ├── [slug]/          # Any other CMS page, e.g. /about
+│   │   ├── blog/            # Blog list (/blog) and articles (/blog/<slug>)
+│   │   └── styles.css       # All site styles, built on the theme CSS variables
+│   └── (payload)/           # Admin panel and API (generated by Payload, rarely edited)
+├── blocks/config.ts         # Page section blocks (Hero, Features, Latest Posts, ...)
+├── collections/             # Pages, Posts, Users, Media
+├── globals/                 # General Settings (incl. Theme), Main Menu, Footer
+├── components/
+│   ├── blocks/              # How each page block renders on the site
+│   ├── blog/                # Post card and cover
+│   ├── site/                # Header, footer, links
+│   └── ColorPickerField.tsx # Custom admin color picker
+├── fields/                  # Reusable field definitions (link, color)
+├── theme/                   # Font list, theme defaults, data loaders
+├── seed/                    # Starter content
+└── payload.config.ts        # Main Payload config
+```
+
+### How content is managed
+
+| Where in the admin                     | What it controls                                                     |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| **Settings → General Settings**        | Site name, tagline, logo, favicon                                    |
+| **Settings → General Settings → Theme** | Heading and paragraph fonts, text colors and brand colors            |
+| **Settings → Main Menu**               | Header navigation and submenus                                       |
+| **Settings → Footer**                  | Footer link columns and copyright                                    |
+| **Pages**                              | Pages built from section blocks. The page with slug `home` is the homepage. |
+| **Blog Posts**                         | Blog articles                                                        |
+
+**Styling rule:** always use the theme CSS variables (`var(--color-primary)`, `var(--font-heading)` and the others defined in `styles.css`) instead of hard-coded colors or fonts. That way the site keeps following what editors set in General Settings → Theme.
+
+### Adding a new page section block
+
+1. Define the block's fields in `src/blocks/config.ts` and add it to `pageBlocks`.
+2. Run `npm run generate:types`.
+3. Add a component for it in `src/components/blocks/RenderBlocks.tsx` and a `case` for its `blockType`.
+4. Style it in `styles.css` using the theme variables.
+
+---
+
+## Git workflow
+
+`master` is the main branch. **Never commit directly to `master`.** All work goes through a branch and a pull request.
+
+### 1. Start from an up-to-date `master`
+
+```bash
+git checkout master
+git pull origin master
+git checkout -b feat/blog-categories
+```
+
+### 2. Name your branch
+
+Use the format **`type/short-description`**, in lowercase with words separated by hyphens:
+
+| Prefix      | Use for                                        | Example                       |
+| ----------- | ---------------------------------------------- | ----------------------------- |
+| `feat/`     | A new feature                                  | `feat/contact-form-block`     |
+| `fix/`      | A bug fix                                      | `fix/mobile-menu-not-closing` |
+| `hotfix/`   | An urgent fix for something already live       | `hotfix/broken-homepage`      |
+| `refactor/` | Restructuring code without changing behavior   | `refactor/block-components`   |
+| `style/`    | Visual or CSS-only changes                     | `style/footer-spacing`        |
+| `docs/`     | Documentation only                             | `docs/readme-setup`           |
+| `chore/`    | Dependencies, config, tooling                  | `chore/update-payload`        |
+| `test/`     | Adding or fixing tests                         | `test/blog-e2e`               |
+
+If there's a ticket or issue number, include it: `feat/123-contact-form-block`.
+
+❌ Avoid names like `my-branch`, `test`, `danzen-changes`, `fix` or `New_Feature`.
+
+### 3. Write proper commit messages
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): short summary in the imperative mood
+
+Optional body explaining WHY the change was made, not just what changed.
+```
+
+- **type**: the same list as the branch prefixes (`feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `test`)
+- **scope** (optional): the area you changed, such as `blog`, `theme`, `pages`, `header`, `admin` or `seed`
+- **summary**: imperative mood ("add", not "added" or "adds"), lowercase, no period at the end, 72 characters or fewer
+
+**Good examples:**
+
+```
+feat(blog): add category filter to blog listing
+fix(header): close mobile menu after clicking a link
+style(theme): increase heading line height on mobile
+refactor(blocks): move hero block into its own component
+chore: update payload to 3.91.0
+docs: add git workflow to README
+```
+
+**Bad examples:**
+
+```
+update            ← says nothing
+fixed stuff       ← vague, past tense
+WIP               ← don't push work-in-progress commits to a shared branch
+changes to the blog page and also fixed the footer and theme   ← too many things at once
+```
+
+Keep each commit to **one logical change**. If your summary needs the word "and", it's probably two commits.
+
+### 4. Before you push
+
+- [ ] `npx tsc --noEmit` passes
+- [ ] You ran `npm run generate:types` if you changed a collection, global or block, and committed the updated `src/payload-types.ts`
+- [ ] You ran `npm run generate:importmap` if you added an admin component
+- [ ] You checked your change in the browser, on both desktop and mobile widths
+- [ ] You aren't committing `.env`, `payload-cms.db` or anything in `media/`
+
+### 5. Open a pull request
+
+```bash
+git push -u origin feat/blog-categories
+```
+
+Then open a pull request on GitHub **into `master`**:
+
+- **Title:** written in the same format as a commit message, e.g. `feat(blog): add category filter to blog listing`
+- **Description:** what changed, why, and how to test it. Add screenshots for any visual change.
+- **Review:** ask a teammate to review it. Merge only after approval, then delete the branch.
+
+### Keeping your branch up to date
+
+If `master` has moved on while you're working:
+
+```bash
+git checkout master
+git pull origin master
+git checkout feat/blog-categories
+git merge master
+```
+
+Resolve any conflicts, check that the app still runs, then push.
+
+> **Conflicts in `src/payload-types.ts` or `importMap.js`?** Don't fix them by hand. Accept either version, then run `npm run generate:types` and `npm run generate:importmap` to regenerate them.
+
+---
+
+## Resources
+
+- [Payload docs](https://payloadcms.com/docs)
+- [Next.js docs](https://nextjs.org/docs)
+- [Conventional Commits](https://www.conventionalcommits.org/)

@@ -11,10 +11,12 @@ test.describe('Frontend', () => {
   test('can go on homepage', async ({ page }) => {
     await page.goto('http://localhost:3000')
 
-    await expect(page).toHaveTitle(/Payload Blank Template/)
+    await expect(page.locator('h1').first()).toBeVisible()
 
-    const heading = page.locator('h1').first()
-
-    await expect(heading).toHaveText('Welcome to your new project.')
+    // Theme variables from General Settings are applied to <html>
+    const primary = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim(),
+    )
+    expect(primary).toMatch(/^#[0-9a-f]{6}$/i)
   })
 })

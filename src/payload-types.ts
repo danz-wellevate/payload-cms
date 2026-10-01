@@ -67,6 +67,8 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    pages: Page;
+    posts: Post;
     users: User;
     media: Media;
     'payload-kv': PayloadKv;
@@ -76,6 +78,8 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
+    pages: PagesSelect<false> | PagesSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -127,6 +131,203 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * Use "home" for the homepage. Other pages are served at /<slug>.
+   */
+  slug: string;
+  layout?: (HeroBlock | FeaturesBlock | ContentStatsBlock | LatestPostsBlock | CallToActionBlock)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock".
+ */
+export interface HeroBlock {
+  /**
+   * Small label shown above the heading.
+   */
+  eyebrow?: string | null;
+  heading: string;
+  lead?: string | null;
+  buttons?:
+    | {
+        label: string;
+        /**
+         * e.g. /about or https://example.com
+         */
+        url: string;
+        newTab?: boolean | null;
+        style?: ('primary' | 'outline') | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeaturesBlock".
+ */
+export interface FeaturesBlock {
+  /**
+   * Small label shown above the heading.
+   */
+  eyebrow?: string | null;
+  heading: string;
+  subheading?: string | null;
+  items?:
+    | {
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Section background, from General Settings → Theme.
+   */
+  background?: ('default' | 'surface') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'features';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ContentStatsBlock".
+ */
+export interface ContentStatsBlock {
+  /**
+   * Small label shown above the heading.
+   */
+  eyebrow?: string | null;
+  heading: string;
+  /**
+   * Separate paragraphs with a blank line.
+   */
+  body?: string | null;
+  note?: string | null;
+  stats?:
+    | {
+        value: string;
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Section background, from General Settings → Theme.
+   */
+  background?: ('default' | 'surface') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'contentStats';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LatestPostsBlock".
+ */
+export interface LatestPostsBlock {
+  /**
+   * Small label shown above the heading.
+   */
+  eyebrow?: string | null;
+  heading: string;
+  subheading?: string | null;
+  limit: number;
+  showViewAll?: boolean | null;
+  /**
+   * Section background, from General Settings → Theme.
+   */
+  background?: ('default' | 'surface') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'latestPosts';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CallToActionBlock".
+ */
+export interface CallToActionBlock {
+  heading: string;
+  body?: string | null;
+  button?: {
+    label?: string | null;
+    /**
+     * e.g. /about or https://example.com
+     */
+    url?: string | null;
+    newTab?: boolean | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'cta';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  title: string;
+  /**
+   * Short summary shown on blog cards.
+   */
+  excerpt?: string | null;
+  /**
+   * Optional. Cards show a themed placeholder when empty.
+   */
+  coverImage?: (number | null) | Media;
+  content: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * URL: /blog/<slug>
+   */
+  slug: string;
+  publishedAt: string;
+  category?: string | null;
+  authorName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -153,25 +354,6 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -194,6 +376,14 @@ export interface PayloadKv {
 export interface PayloadLockedDocument {
   id: number;
   document?:
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
+      } | null)
     | ({
         relationTo: 'users';
         value: number | User;
@@ -243,6 +433,131 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?: T | HeroBlockSelect<T>;
+        features?: T | FeaturesBlockSelect<T>;
+        contentStats?: T | ContentStatsBlockSelect<T>;
+        latestPosts?: T | LatestPostsBlockSelect<T>;
+        cta?: T | CallToActionBlockSelect<T>;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock_select".
+ */
+export interface HeroBlockSelect<T extends boolean = true> {
+  eyebrow?: T;
+  heading?: T;
+  lead?: T;
+  buttons?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        newTab?: T;
+        style?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeaturesBlock_select".
+ */
+export interface FeaturesBlockSelect<T extends boolean = true> {
+  eyebrow?: T;
+  heading?: T;
+  subheading?: T;
+  items?:
+    | T
+    | {
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  background?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ContentStatsBlock_select".
+ */
+export interface ContentStatsBlockSelect<T extends boolean = true> {
+  eyebrow?: T;
+  heading?: T;
+  body?: T;
+  note?: T;
+  stats?:
+    | T
+    | {
+        value?: T;
+        label?: T;
+        id?: T;
+      };
+  background?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LatestPostsBlock_select".
+ */
+export interface LatestPostsBlockSelect<T extends boolean = true> {
+  eyebrow?: T;
+  heading?: T;
+  subheading?: T;
+  limit?: T;
+  showViewAll?: T;
+  background?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CallToActionBlock_select".
+ */
+export interface CallToActionBlockSelect<T extends boolean = true> {
+  heading?: T;
+  body?: T;
+  button?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        newTab?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  title?: T;
+  excerpt?: T;
+  coverImage?: T;
+  content?: T;
+  slug?: T;
+  publishedAt?: T;
+  category?: T;
+  authorName?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -335,6 +650,63 @@ export interface SiteSetting {
   tagline?: string | null;
   logo?: (number | null) | Media;
   favicon?: (number | null) | Media;
+  theme?: {
+    /**
+     * Used for h1–h6.
+     */
+    headingFont?:
+      | (
+          | 'inter'
+          | 'roboto'
+          | 'open-sans'
+          | 'lato'
+          | 'montserrat'
+          | 'poppins'
+          | 'dm-sans'
+          | 'space-grotesk'
+          | 'playfair-display'
+          | 'merriweather'
+          | 'lora'
+          | 'source-serif-4'
+          | 'system'
+        )
+      | null;
+    /**
+     * Used for paragraphs, sub paragraphs and UI text.
+     */
+    bodyFont?:
+      | (
+          | 'inter'
+          | 'roboto'
+          | 'open-sans'
+          | 'lato'
+          | 'montserrat'
+          | 'poppins'
+          | 'dm-sans'
+          | 'space-grotesk'
+          | 'playfair-display'
+          | 'merriweather'
+          | 'lora'
+          | 'source-serif-4'
+          | 'system'
+        )
+      | null;
+    headingColor?: string | null;
+    paragraphColor?: string | null;
+    /**
+     * Taglines, captions and secondary text.
+     */
+    subParagraphColor?: string | null;
+    /**
+     * Buttons, links and accents.
+     */
+    primaryColor?: string | null;
+    backgroundColor?: string | null;
+    /**
+     * Cards and alternate sections.
+     */
+    surfaceColor?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -408,6 +780,18 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   tagline?: T;
   logo?: T;
   favicon?: T;
+  theme?:
+    | T
+    | {
+        headingFont?: T;
+        bodyFont?: T;
+        headingColor?: T;
+        paragraphColor?: T;
+        subParagraphColor?: T;
+        primaryColor?: T;
+        backgroundColor?: T;
+        surfaceColor?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
