@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
+import { isAdmin } from '../access/isAdmin'
+
 export const Posts: CollectionConfig = {
   slug: 'posts',
   labels: { singular: 'Blog Post', plural: 'Blog Posts' },
@@ -11,9 +13,9 @@ export const Posts: CollectionConfig = {
   defaultSort: '-publishedAt',
   access: {
     read: () => true,
-    create: ({ req: { user } }) => Boolean(user),
-    update: ({ req: { user } }) => Boolean(user),
-    delete: ({ req: { user } }) => Boolean(user),
+    create: isAdmin,
+    update: isAdmin,
+    delete: isAdmin,
   },
   fields: [
     {

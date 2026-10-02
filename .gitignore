@@ -54,3 +54,7 @@ node_modules/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# webcam snapshots from assessments
+/proctoring-snapshots
+/proctoring-recordings
