@@ -64,6 +64,7 @@ export type SupportedTimezones =
 export interface Config {
   auth: {
     users: UserAuthOperations;
+    applicants: ApplicantAuthOperations;
   };
   blocks: {};
   collections: {
@@ -71,17 +72,31 @@ export interface Config {
     posts: Post;
     users: User;
     media: Media;
+    applicants: Applicant;
+    assessments: Assessment;
+    'proctoring-events': ProctoringEvent;
+    'proctoring-recordings': ProctoringRecording;
+    'proctoring-snapshots': ProctoringSnapshot;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    applicants: {
+      assessments: 'assessments';
+    };
+  };
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    applicants: ApplicantsSelect<false> | ApplicantsSelect<true>;
+    assessments: AssessmentsSelect<false> | AssessmentsSelect<true>;
+    'proctoring-events': ProctoringEventsSelect<false> | ProctoringEventsSelect<true>;
+    'proctoring-recordings': ProctoringRecordingsSelect<false> | ProctoringRecordingsSelect<true>;
+    'proctoring-snapshots': ProctoringSnapshotsSelect<false> | ProctoringSnapshotsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -95,23 +110,43 @@ export interface Config {
     'site-settings': SiteSetting;
     header: Header;
     footer: Footer;
+    playground: Playground;
   };
   globalsSelect: {
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    playground: PlaygroundSelect<false> | PlaygroundSelect<true>;
   };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
   };
-  user: User;
+  user: User | Applicant;
   jobs: {
     tasks: unknown;
     workflows: unknown;
   };
 }
 export interface UserAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface ApplicantAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -353,6 +388,211 @@ export interface User {
   collection: 'users';
 }
 /**
+ * Applicants sign up themselves at /applicant/login. Set each one's exam time limit here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applicants".
+ */
+export interface Applicant {
+  id: number;
+  name?: string | null;
+  /**
+   * Used for new exams, and updates any exam they haven't started yet.
+   */
+  timeLimitMinutes: number;
+  /**
+   * Whether the applicant has finished signing up.
+   */
+  passwordSet?: boolean | null;
+  assessments?: {
+    docs?: (number | Assessment)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'applicants';
+}
+/**
+ * Exam attempts. Applicants get one automatically when they start the exam from their dashboard; you can also create one and send the invite link. Review the submission and set the result.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "assessments".
+ */
+export interface Assessment {
+  id: number;
+  candidateName: string;
+  candidateEmail: string;
+  /**
+   * Shown beside the editor. Leave empty to use the instructions from Settings → Code Playground.
+   */
+  task?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  durationMinutes: number;
+  /**
+   * Optional. The test can no longer be started after this.
+   */
+  expiresAt?: string | null;
+  /**
+   * Records the candidate's webcam in 1-minute clips (Proctoring tab).
+   */
+  requireWebcam?: boolean | null;
+  /**
+   * The candidate must share their entire screen, which is recorded in 1-minute clips.
+   */
+  recordScreen?: boolean | null;
+  languageLabel?: string | null;
+  languageId?: number | null;
+  /**
+   * Autosaved while the candidate works; final once submitted.
+   */
+  code?: string | null;
+  /**
+   * The server re-runs the submitted code on Judge0 with the candidate's last input, so this output is verified.
+   */
+  finalRun?: {
+    status?: string | null;
+    time?: string | null;
+    memory?: number | null;
+    stdin?: string | null;
+    stdout?: string | null;
+    errors?: string | null;
+  };
+  /**
+   * Optional. Shown on the applicant's dashboard once a result is set.
+   */
+  feedback?: string | null;
+  /**
+   * Shown on the applicant's dashboard.
+   */
+  result: 'pending' | 'passed' | 'failed';
+  applicant?: (number | null) | Applicant;
+  /**
+   * Use "Reset assessment" above to let the candidate retake the test.
+   */
+  status: 'invited' | 'in_progress' | 'completed';
+  token?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  endedBy?: ('submitted' | 'time_expired') | null;
+  /**
+   * Submitted after the time limit.
+   */
+  submittedLate?: boolean | null;
+  tabSwitches?: number | null;
+  timeAwaySeconds?: number | null;
+  fullscreenExits?: number | null;
+  pastes?: number | null;
+  pastedCharacters?: number | null;
+  codeRuns?: number | null;
+  multipleMonitors?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-events".
+ */
+export interface ProctoringEvent {
+  id: number;
+  assessment: number | Assessment;
+  type:
+    | 'started'
+    | 'resumed'
+    | 'left_tab'
+    | 'lost_focus'
+    | 'fullscreen_exit'
+    | 'paste'
+    | 'camera_off'
+    | 'screen_share_stopped'
+    | 'multiple_monitors'
+    | 'code_run'
+    | 'time_expired'
+    | 'submitted';
+  at: string;
+  durationSeconds?: number | null;
+  characters?: number | null;
+  detail?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Recordings are deleted automatically after 30 days.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-recordings".
+ */
+export interface ProctoringRecording {
+  id: number;
+  assessment: number | Assessment;
+  source?: ('webcam' | 'screen') | null;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * Older webcam snapshots. Deleted automatically after 30 days.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-snapshots".
+ */
+export interface ProctoringSnapshot {
+  id: number;
+  assessment: number | Assessment;
+  takenAt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -391,12 +631,37 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'applicants';
+        value: number | Applicant;
+      } | null)
+    | ({
+        relationTo: 'assessments';
+        value: number | Assessment;
+      } | null)
+    | ({
+        relationTo: 'proctoring-events';
+        value: number | ProctoringEvent;
+      } | null)
+    | ({
+        relationTo: 'proctoring-recordings';
+        value: number | ProctoringRecording;
+      } | null)
+    | ({
+        relationTo: 'proctoring-snapshots';
+        value: number | ProctoringSnapshot;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'applicants';
+        value: number | Applicant;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -406,10 +671,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: number;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: number | User;
+      }
+    | {
+        relationTo: 'applicants';
+        value: number | Applicant;
+      };
   key?: string | null;
   value?:
     | {
@@ -602,6 +872,132 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applicants_select".
+ */
+export interface ApplicantsSelect<T extends boolean = true> {
+  name?: T;
+  timeLimitMinutes?: T;
+  passwordSet?: T;
+  assessments?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "assessments_select".
+ */
+export interface AssessmentsSelect<T extends boolean = true> {
+  candidateName?: T;
+  candidateEmail?: T;
+  task?: T;
+  durationMinutes?: T;
+  expiresAt?: T;
+  requireWebcam?: T;
+  recordScreen?: T;
+  languageLabel?: T;
+  languageId?: T;
+  code?: T;
+  finalRun?:
+    | T
+    | {
+        status?: T;
+        time?: T;
+        memory?: T;
+        stdin?: T;
+        stdout?: T;
+        errors?: T;
+      };
+  feedback?: T;
+  result?: T;
+  applicant?: T;
+  status?: T;
+  token?: T;
+  startedAt?: T;
+  completedAt?: T;
+  endedBy?: T;
+  submittedLate?: T;
+  tabSwitches?: T;
+  timeAwaySeconds?: T;
+  fullscreenExits?: T;
+  pastes?: T;
+  pastedCharacters?: T;
+  codeRuns?: T;
+  multipleMonitors?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-events_select".
+ */
+export interface ProctoringEventsSelect<T extends boolean = true> {
+  assessment?: T;
+  type?: T;
+  at?: T;
+  durationSeconds?: T;
+  characters?: T;
+  detail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-recordings_select".
+ */
+export interface ProctoringRecordingsSelect<T extends boolean = true> {
+  assessment?: T;
+  source?: T;
+  startedAt?: T;
+  endedAt?: T;
+  durationSeconds?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proctoring-snapshots_select".
+ */
+export interface ProctoringSnapshotsSelect<T extends boolean = true> {
+  assessment?: T;
+  takenAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -772,6 +1168,36 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
+ * Instructions shown beside the code editor at /playground.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "playground".
+ */
+export interface Playground {
+  id: number;
+  heading: string;
+  /**
+   * The task for the user, e.g. the problem statement, input format and rules.
+   */
+  instructions?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings_select".
  */
@@ -841,6 +1267,17 @@ export interface FooterSelect<T extends boolean = true> {
         id?: T;
       };
   copyright?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "playground_select".
+ */
+export interface PlaygroundSelect<T extends boolean = true> {
+  heading?: T;
+  instructions?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
