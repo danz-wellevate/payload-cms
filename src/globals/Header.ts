@@ -1,5 +1,6 @@
 import type { GlobalConfig } from 'payload'
 
+import { isAdmin } from '../access/isAdmin'
 import { linkFields } from '../fields/link'
 
 export const Header: GlobalConfig = {
@@ -10,7 +11,7 @@ export const Header: GlobalConfig = {
   },
   access: {
     read: () => true,
-    update: ({ req: { user } }) => Boolean(user),
+    update: isAdmin,
   },
   fields: [
     {

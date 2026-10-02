@@ -1,5 +1,6 @@
 import type { GlobalConfig } from 'payload'
 
+import { isAdmin } from '../access/isAdmin'
 import { colorField } from '../fields/color'
 import { themeDefaults, themeFonts } from '../theme/fonts'
 
@@ -13,7 +14,7 @@ export const SiteSettings: GlobalConfig = {
   },
   access: {
     read: () => true,
-    update: ({ req: { user } }) => Boolean(user),
+    update: isAdmin,
   },
   fields: [
     {

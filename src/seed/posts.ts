@@ -15,7 +15,7 @@ const text = (value: string) => ({
   version: 1,
 })
 
-const toLexical = (lines: string[]): Post['content'] => {
+export const toLexical = (lines: string[]): Post['content'] => {
   const children: Record<string, unknown>[] = []
 
   for (const line of lines) {

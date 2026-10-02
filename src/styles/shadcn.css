@@ -1,0 +1,121 @@
+/* Tailwind v4 + shadcn/ui, scoped to `.shadcn` containers (applicant dashboard, admin widgets).
+   Loaded only by components that import it. Deliberate differences from a stock setup:
+   - No preflight: the global reset would restyle the rest of the site and the admin.
+   - theme(reference inline): Tailwind's default theme emits no global CSS variables
+     (Payload's admin uses some of the same names, e.g. --color-blue-*, --font-mono).
+   - source(none) + explicit @source: only shadcn components are scanned, so site class
+     names like `.container` never collide with Tailwind utilities. */
+@import 'tailwindcss/theme.css' theme(reference inline);
+@import 'tailwindcss/utilities.css' source(none);
+
+@source '../components/ui';
+@source '../components/applicant/dashboard';
+@source '../components/admin';
+
+/* shadcn tokens mapped to the site theme from General Settings (see layout.tsx). */
+.shadcn {
+  --spacing: 0.25rem; /* used directly by some shadcn arbitrary values */
+  --radius: 0.625rem;
+  --background: var(--color-bg);
+  --foreground: var(--color-heading);
+  --card: var(--color-bg);
+  --card-foreground: var(--color-heading);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-primary);
+  --secondary: var(--color-surface);
+  --secondary-foreground: var(--color-heading);
+  --muted: var(--color-surface);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-surface);
+  --accent-foreground: var(--color-heading);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.596 0.145 163.2);
+  --border: color-mix(in srgb, var(--color-text) 14%, transparent);
+  --input: var(--border);
+  --ring: var(--color-primary);
+
+  color: var(--foreground);
+}
+
+/* Inside the Payload admin: follow Payload's theme variables, so light/dark mode just works. */
+.shadcn.shadcn-admin {
+  --background: var(--theme-bg);
+  --foreground: var(--theme-elevation-1000);
+  --card: var(--theme-elevation-0);
+  --card-foreground: var(--theme-elevation-1000);
+  --primary: var(--theme-elevation-900);
+  --primary-foreground: var(--theme-elevation-0);
+  --secondary: var(--theme-elevation-100);
+  --secondary-foreground: var(--theme-elevation-900);
+  --muted: var(--theme-elevation-50);
+  --muted-foreground: var(--theme-elevation-500);
+  --accent: var(--theme-elevation-100);
+  --accent-foreground: var(--theme-elevation-900);
+  --border: var(--theme-elevation-150);
+  --ring: var(--theme-elevation-400);
+}
+
+@theme inline reference {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Minimal scoped base (instead of preflight). :where() keeps it below utilities. */
+:where(.shadcn) *,
+:where(.shadcn) ::before,
+:where(.shadcn) ::after {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+:where(.shadcn) :is(h1, h2, h3, h4, p, dl, dd, ul, ol) {
+  margin: 0;
+  padding: 0;
+}
+
+:where(.shadcn) :is(ul, ol) {
+  list-style: none;
+}
+
+:where(.shadcn) button {
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+/* Note: Tailwind's space-x/space-y utilities have zero specificity, so the margin reset above
+   wins over them. Use flex/grid with gap-* inside .shadcn instead. */
+
+/* Links styled as buttons/cards shouldn't pick up host page link styles (e.g. Payload's underline). */
+:where(.shadcn) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The Payload admin's root font size is 13px (not 16px), so rem-based Tailwind sizes render
+   ~20% smaller there. Admin widgets set explicit px text sizes to match Payload's scale. */
