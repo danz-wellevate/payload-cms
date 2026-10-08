@@ -11,6 +11,9 @@
 @source '../components/ui';
 @source '../components/applicant/dashboard';
 @source '../components/admin';
+@source '../components/careers';
+@source '../app/(frontend)/careers';
+@source '../app/(frontend)/schedule';
 
 /* shadcn tokens mapped to the site theme from General Settings (see layout.tsx). */
 .shadcn {

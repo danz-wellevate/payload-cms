@@ -1,9 +1,14 @@
-import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
 
-import { ADMIN_EMAIL_ERROR, isAdminEmail, isValidEmail, normalizeEmail } from '@/applicant/server'
+import {
+  ADMIN_EMAIL_ERROR,
+  findOrCreateApplicant,
+  isAdminEmail,
+  isValidEmail,
+  normalizeEmail,
+} from '@/applicant/server'
 import { getPayloadClient } from '@/assessment/server'
-import { DEFAULT_TIME_LIMIT_MINUTES, setPasswordLink } from '@/collections/Applicants'
+import { setPasswordLink } from '@/collections/Applicants'
 import { showEmailLinksOnScreen } from '@/email/smtp'
 
 // Step 1 of applicant login. Creates the account on first visit (auto sign-up) and emails a
@@ -22,26 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: ADMIN_EMAIL_ERROR }, { status: 400 })
   }
 
-  const { docs } = await payload.find({
-    collection: 'applicants',
-    where: { email: { equals: email } },
-    limit: 1,
-    depth: 0,
-  })
-  let applicant = docs[0]
-
-  if (!applicant) {
-    applicant = await payload.create({
-      collection: 'applicants',
-      // Placeholder password nobody knows; replaced when they follow the emailed link.
-      data: {
-        email,
-        password: randomBytes(32).toString('base64url'),
-        passwordSet: false,
-        timeLimitMinutes: DEFAULT_TIME_LIMIT_MINUTES,
-      },
-    })
-  }
+  const applicant = await findOrCreateApplicant(payload, email)
 
   if (applicant.passwordSet && !body?.resend) {
     return NextResponse.json({ next: 'password' })

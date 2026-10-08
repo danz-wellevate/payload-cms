@@ -27,6 +27,7 @@ import { SnapshotGallery as SnapshotGallery_aba90c4d3df8dc227a8eb013538a096e } f
 import { ResetAssessmentButton as ResetAssessmentButton_cfcf7d7091ad6d388976e41dfaeaf24d } from '../../../components/admin/ResetAssessmentButton'
 import { ReviewView as ReviewView_cbaaa1b4aeacaefca1d3731aa9de391b } from '../../../components/admin/review/ReviewView'
 import { DeleteCapturesByDate as DeleteCapturesByDate_bf6e6cb44e9f529014179ff0d0c0f875 } from '../../../components/admin/DeleteCapturesByDate'
+import { RunAIReviewButton as RunAIReviewButton_5f1b0e2001601a116db43a91509b6db1 } from '../../../components/admin/RunAIReviewButton'
 import { ColorPickerField as ColorPickerField_6ad20a508e3120315eb15b56aaabde8c } from '../../../components/ColorPickerField'
 import { ExamOverview as ExamOverview_a95607c2afe158cba8381415714a226d } from '../../../components/admin/dashboard/ExamOverview'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
@@ -62,6 +63,7 @@ export const importMap = {
   "/components/admin/ResetAssessmentButton#ResetAssessmentButton": ResetAssessmentButton_cfcf7d7091ad6d388976e41dfaeaf24d,
   "/components/admin/review/ReviewView#ReviewView": ReviewView_cbaaa1b4aeacaefca1d3731aa9de391b,
   "/components/admin/DeleteCapturesByDate#DeleteCapturesByDate": DeleteCapturesByDate_bf6e6cb44e9f529014179ff0d0c0f875,
+  "/components/admin/RunAIReviewButton#RunAIReviewButton": RunAIReviewButton_5f1b0e2001601a116db43a91509b6db1,
   "/components/ColorPickerField#ColorPickerField": ColorPickerField_6ad20a508e3120315eb15b56aaabde8c,
   "/components/admin/dashboard/ExamOverview#ExamOverview": ExamOverview_a95607c2afe158cba8381415714a226d,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1

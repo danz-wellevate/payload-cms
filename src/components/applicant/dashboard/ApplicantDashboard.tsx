@@ -31,8 +31,18 @@ import {
 } from '@/components/ui/card'
 
 import { LocalTime } from '../LocalTime'
+import { ApplicationStatus, type ApplicationStatusProps } from './ApplicationStatus'
 
-export type ExamState = 'not_started' | 'in_progress' | 'awaiting_review' | 'passed' | 'failed'
+// scheduled: the hiring workflow set a start time that hasn't come yet.
+// not_scheduled: the applicant applied for a job but has no assessment yet.
+export type ExamState =
+  | 'not_scheduled'
+  | 'scheduled'
+  | 'not_started'
+  | 'in_progress'
+  | 'awaiting_review'
+  | 'passed'
+  | 'failed'
 
 export type ApplicantDashboardProps = {
   name: string
@@ -45,9 +55,17 @@ export type ApplicantDashboardProps = {
   timedOut?: boolean
   language?: string | null
   feedback?: string | null
+  availableFrom?: string | null
+  application?: ApplicationStatusProps | null
 }
 
 const badges: Record<ExamState, React.ReactNode> = {
+  not_scheduled: <Badge variant="secondary">Not scheduled</Badge>,
+  scheduled: (
+    <Badge variant="outline">
+      <CalendarClock /> Scheduled
+    </Badge>
+  ),
   not_started: <Badge variant="secondary">Not started</Badge>,
   in_progress: (
     <Badge>
@@ -72,6 +90,8 @@ const badges: Record<ExamState, React.ReactNode> = {
 }
 
 const descriptions: Record<ExamState, string> = {
+  not_scheduled: 'Not scheduled yet.',
+  scheduled: 'Your assessment is scheduled. The Start button appears here at that time.',
   not_started: 'Solve the coding exercise in the browser-based editor.',
   in_progress: 'Your exam is in progress and the timer is still running.',
   awaiting_review: 'Your submission was received and is being reviewed.',
@@ -116,6 +136,8 @@ export const ApplicantDashboard = ({
   timedOut,
   language,
   feedback,
+  availableFrom,
+  application,
 }: ApplicantDashboardProps) => {
   const canStart = state === 'not_started' || state === 'in_progress'
   const reviewed = state === 'passed' || state === 'failed'
@@ -124,9 +146,7 @@ export const ApplicantDashboard = ({
     <div className="shadcn mx-auto w-full max-w-4xl px-6 py-12 md:py-16">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-semibold tracking-wide text-primary uppercase">
-            Applicant dashboard
-          </p>
+          <p className="text-sm font-semibold tracking-wide text-primary uppercase">My profile</p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Hi {name}</h1>
           <p className="text-sm text-muted-foreground">Signed in as {email}</p>
         </div>
@@ -137,91 +157,107 @@ export const ApplicantDashboard = ({
         </form>
       </div>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="text-xl">Coding exam</CardTitle>
-          <CardDescription>{descriptions[state]}</CardDescription>
-          <CardAction>{badges[state]}</CardAction>
-        </CardHeader>
+      {application && <ApplicationStatus {...application} />}
 
-        <CardContent className="flex flex-col gap-6">
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Fact icon={Timer} label="Time limit">
-              {timeLimit}
-            </Fact>
-            {state === 'in_progress' && minutesLeft != null && (
-              <Fact icon={Hourglass} label="Time left">
-                About {minutesLeft} min
-              </Fact>
-            )}
-            {startedAt && (
-              <Fact icon={CalendarClock} label="Started">
-                <LocalTime value={startedAt} />
-              </Fact>
-            )}
-            {completedAt && (
-              <Fact icon={CalendarCheck} label="Submitted">
-                <LocalTime value={completedAt} />
-                {timedOut && (
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    Time limit reached
-                  </span>
-                )}
-              </Fact>
-            )}
-            {language && !canStart && (
-              <Fact icon={Code} label="Language">
-                {language}
-              </Fact>
-            )}
-          </dl>
+      {state !== 'not_scheduled' && (
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="text-xl">
+              {application ? 'Technical assessment' : 'Coding exam'}
+            </CardTitle>
+            <CardDescription>{descriptions[state]}</CardDescription>
+            <CardAction>{badges[state]}</CardAction>
+          </CardHeader>
 
-          {reviewed && feedback && (
-            <Alert variant={state === 'passed' ? 'success' : 'destructive'}>
-              <MessageSquare />
-              <AlertTitle>Feedback from the reviewer</AlertTitle>
-              <AlertDescription className="whitespace-pre-line">{feedback}</AlertDescription>
-            </Alert>
+          <CardContent className="flex flex-col gap-6">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Fact icon={Timer} label="Time limit">
+                {timeLimit}
+              </Fact>
+              {state === 'scheduled' && availableFrom && (
+                <Fact icon={CalendarClock} label="Opens">
+                  <LocalTime value={availableFrom} />
+                </Fact>
+              )}
+              {state === 'in_progress' && minutesLeft != null && (
+                <Fact icon={Hourglass} label="Time left">
+                  About {minutesLeft} min
+                </Fact>
+              )}
+              {startedAt && (
+                <Fact icon={CalendarClock} label="Started">
+                  <LocalTime value={startedAt} />
+                </Fact>
+              )}
+              {completedAt && (
+                <Fact icon={CalendarCheck} label="Submitted">
+                  <LocalTime value={completedAt} />
+                  {timedOut && (
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      Time limit reached
+                    </span>
+                  )}
+                </Fact>
+              )}
+              {language && !canStart && (
+                <Fact icon={Code} label="Language">
+                  {language}
+                </Fact>
+              )}
+            </dl>
+
+            {reviewed && feedback && (
+              <Alert variant={state === 'passed' ? 'success' : 'destructive'}>
+                <MessageSquare />
+                <AlertTitle>Feedback from the reviewer</AlertTitle>
+                <AlertDescription className="whitespace-pre-line">{feedback}</AlertDescription>
+              </Alert>
+            )}
+
+            {state === 'awaiting_review' && (
+              <Alert>
+                <Hourglass />
+                <AlertTitle>Submission received</AlertTitle>
+                <AlertDescription>
+                  Your code is being reviewed. Check back here for your result.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {(state === 'not_started' || state === 'scheduled') && (
+              <div className="flex flex-col gap-3">
+                <h2 className="text-sm font-semibold text-foreground">Before you start</h2>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {rules.map(({ icon: Icon, text }) => (
+                    <li
+                      className="flex items-start gap-3 rounded-lg border p-3 text-sm text-muted-foreground"
+                      key={text}
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+
+          {canStart && (
+            <CardFooter className="border-t">
+              <form action="/applicant/exam" method="post">
+                <Button size="lg" type="submit">
+                  {state === 'in_progress'
+                    ? 'Resume exam'
+                    : application
+                      ? 'Start technical assessment'
+                      : 'Start coding exam'}{' '}
+                  <ArrowRight />
+                </Button>
+              </form>
+            </CardFooter>
           )}
-
-          {state === 'awaiting_review' && (
-            <Alert>
-              <Hourglass />
-              <AlertTitle>Submission received</AlertTitle>
-              <AlertDescription>
-                Your code is being reviewed. Check back here for your result.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {state === 'not_started' && (
-            <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold text-foreground">Before you start</h2>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {rules.map(({ icon: Icon, text }) => (
-                  <li
-                    className="flex items-start gap-3 rounded-lg border p-3 text-sm text-muted-foreground"
-                    key={text}
-                  >
-                    <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
-                    {text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-
-        {canStart && (
-          <CardFooter className="border-t">
-            <form action="/applicant/exam" method="post">
-              <Button size="lg" type="submit">
-                {state === 'in_progress' ? 'Resume exam' : 'Start coding exam'} <ArrowRight />
-              </Button>
-            </form>
-          </CardFooter>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   )
 }

@@ -77,6 +77,10 @@ export interface Config {
     'proctoring-events': ProctoringEvent;
     'proctoring-recordings': ProctoringRecording;
     'proctoring-snapshots': ProctoringSnapshot;
+    jobs: Job;
+    applications: Application;
+    'interview-slots': InterviewSlot;
+    resumes: Resume;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -85,6 +89,9 @@ export interface Config {
   collectionsJoins: {
     applicants: {
       assessments: 'assessments';
+    };
+    jobs: {
+      applications: 'applications';
     };
   };
   collectionsSelect: {
@@ -97,6 +104,10 @@ export interface Config {
     'proctoring-events': ProctoringEventsSelect<false> | ProctoringEventsSelect<true>;
     'proctoring-recordings': ProctoringRecordingsSelect<false> | ProctoringRecordingsSelect<true>;
     'proctoring-snapshots': ProctoringSnapshotsSelect<false> | ProctoringSnapshotsSelect<true>;
+    jobs: JobsSelect<false> | JobsSelect<true>;
+    applications: ApplicationsSelect<false> | ApplicationsSelect<true>;
+    'interview-slots': InterviewSlotsSelect<false> | InterviewSlotsSelect<true>;
+    resumes: ResumesSelect<false> | ResumesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -367,6 +378,11 @@ export interface Media {
  */
 export interface User {
   id: number;
+  name?: string | null;
+  /**
+   * Head of Plus users get the hiring emails (booked interviews, finished assessments). If nobody has this role, every admin gets them.
+   */
+  role?: ('admin' | 'head_of_plus') | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -458,6 +474,10 @@ export interface Assessment {
     [k: string]: unknown;
   } | null;
   durationMinutes: number;
+  /**
+   * Optional. The Start button appears in My Profile at this time. Set by the hiring workflow.
+   */
+  availableFrom?: string | null;
   /**
    * Optional. The test can no longer be started after this.
    */
@@ -593,6 +613,160 @@ export interface ProctoringSnapshot {
   focalY?: number | null;
 }
 /**
+ * Open postings are listed at /careers, where candidates apply with their resume.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "jobs".
+ */
+export interface Job {
+  id: number;
+  title: string;
+  /**
+   * Used in the URL. Generated from the title.
+   */
+  slug?: string | null;
+  status: 'open' | 'closed';
+  location?: string | null;
+  employmentType?: string | null;
+  /**
+   * A short description shown on the careers page.
+   */
+  summary?: string | null;
+  /**
+   * One per line. The AI review checks the resume against each of these.
+   */
+  qualifications: string;
+  requiredSkills: {
+    skill: string;
+    id?: string | null;
+  }[];
+  /**
+   * Candidates at or above this score are invited to book an initial interview.
+   */
+  minimumScore: number;
+  applications?: {
+    docs?: (number | Application)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Candidates who applied at /careers. Work through each step in the tabs: AI review, initial interview, technical assessment, final interview.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applications".
+ */
+export interface Application {
+  id: number;
+  email: string;
+  name?: string | null;
+  job: number | Job;
+  resume: number | Resume;
+  aiScore?: number | null;
+  /**
+   * Set automatically from the job's minimum score. Tick it to invite a candidate anyway; this emails them the booking link.
+   */
+  shortlisted?: boolean | null;
+  aiSummary?: string | null;
+  aiStrengths?: string | null;
+  aiGaps?: string | null;
+  aiError?: string | null;
+  initialInterviewSlot?: (number | null) | InterviewSlot;
+  initialInterviewAt?: string | null;
+  initialResult?: ('pending' | 'passed' | 'failed') | null;
+  initialNotes?: string | null;
+  technicalAssessmentAt?: string | null;
+  /**
+   * Created automatically. Open it to review the code, recordings and activity.
+   */
+  assessment?: (number | null) | Assessment;
+  /**
+   * Same as the Result on the assessment; changing either updates both.
+   */
+  technicalResult?: ('pending' | 'passed' | 'failed') | null;
+  /**
+   * Saving emails the candidate this schedule.
+   */
+  finalInterviewAt?: string | null;
+  /**
+   * Optional, e.g. the meeting link or address. Included in the email.
+   */
+  finalInterviewDetails?: string | null;
+  /**
+   * Updated automatically from the steps below.
+   */
+  stage?:
+    | (
+        | 'screening'
+        | 'ai_error'
+        | 'not_shortlisted'
+        | 'invited_to_schedule'
+        | 'initial_scheduled'
+        | 'initial_failed'
+        | 'initial_passed'
+        | 'assessment_scheduled'
+        | 'assessment_in_progress'
+        | 'assessment_submitted'
+        | 'assessment_failed'
+        | 'assessment_passed'
+        | 'final_scheduled'
+      )
+    | null;
+  applicant?: (number | null) | Applicant;
+  aiStatus?: ('pending' | 'done' | 'error') | null;
+  aiReviewedAt?: string | null;
+  assessmentStatus?: string | null;
+  schedulingToken?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "resumes".
+ */
+export interface Resume {
+  id: number;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * Initial interview times candidates can book. A slot is taken once a candidate books it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "interview-slots".
+ */
+export interface InterviewSlot {
+  id: number;
+  startsAt: string;
+  durationMinutes: number;
+  /**
+   * Optional. Defaults to whoever is Head of Plus.
+   */
+  interviewer?: (number | null) | User;
+  /**
+   * Optional. Sent to the candidate when they book.
+   */
+  meetingLink?: string | null;
+  /**
+   * Filled in when a candidate books this slot. Clear it to free the slot.
+   */
+  application?: (number | null) | Application;
+  label?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -651,6 +825,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'proctoring-snapshots';
         value: number | ProctoringSnapshot;
+      } | null)
+    | ({
+        relationTo: 'jobs';
+        value: number | Job;
+      } | null)
+    | ({
+        relationTo: 'applications';
+        value: number | Application;
+      } | null)
+    | ({
+        relationTo: 'interview-slots';
+        value: number | InterviewSlot;
+      } | null)
+    | ({
+        relationTo: 'resumes';
+        value: number | Resume;
       } | null);
   globalSlug?: string | null;
   user:
@@ -834,6 +1024,8 @@ export interface PostsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  role?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -906,6 +1098,7 @@ export interface AssessmentsSelect<T extends boolean = true> {
   candidateEmail?: T;
   task?: T;
   durationMinutes?: T;
+  availableFrom?: T;
   expiresAt?: T;
   requireWebcam?: T;
   recordScreen?: T;
@@ -984,6 +1177,93 @@ export interface ProctoringRecordingsSelect<T extends boolean = true> {
 export interface ProctoringSnapshotsSelect<T extends boolean = true> {
   assessment?: T;
   takenAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "jobs_select".
+ */
+export interface JobsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  status?: T;
+  location?: T;
+  employmentType?: T;
+  summary?: T;
+  qualifications?: T;
+  requiredSkills?:
+    | T
+    | {
+        skill?: T;
+        id?: T;
+      };
+  minimumScore?: T;
+  applications?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applications_select".
+ */
+export interface ApplicationsSelect<T extends boolean = true> {
+  email?: T;
+  name?: T;
+  job?: T;
+  resume?: T;
+  aiScore?: T;
+  shortlisted?: T;
+  aiSummary?: T;
+  aiStrengths?: T;
+  aiGaps?: T;
+  aiError?: T;
+  initialInterviewSlot?: T;
+  initialInterviewAt?: T;
+  initialResult?: T;
+  initialNotes?: T;
+  technicalAssessmentAt?: T;
+  assessment?: T;
+  technicalResult?: T;
+  finalInterviewAt?: T;
+  finalInterviewDetails?: T;
+  stage?: T;
+  applicant?: T;
+  aiStatus?: T;
+  aiReviewedAt?: T;
+  assessmentStatus?: T;
+  schedulingToken?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "interview-slots_select".
+ */
+export interface InterviewSlotsSelect<T extends boolean = true> {
+  startsAt?: T;
+  durationMinutes?: T;
+  interviewer?: T;
+  meetingLink?: T;
+  application?: T;
+  label?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "resumes_select".
+ */
+export interface ResumesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   url?: T;

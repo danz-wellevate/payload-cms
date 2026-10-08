@@ -33,6 +33,12 @@ export const isInviteExpired = (assessment: Assessment) =>
   !!assessment.expiresAt &&
   Date.now() > new Date(assessment.expiresAt).getTime()
 
+// Scheduled by the hiring workflow: can't be started before availableFrom.
+export const isNotYetAvailable = (assessment: Assessment) =>
+  assessment.status === 'invited' &&
+  !!assessment.availableFrom &&
+  Date.now() < new Date(assessment.availableFrom).getTime()
+
 export const logEvent = (
   payload: Payload,
   assessment: Assessment,

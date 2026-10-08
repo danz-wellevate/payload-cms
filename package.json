@@ -19,6 +19,7 @@
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@monaco-editor/react": "^4.7.0",
     "@payloadcms/db-sqlite": "3.90.2",
     "@payloadcms/email-nodemailer": "^3.90.2",
@@ -32,6 +33,7 @@
     "dotenv": "16.4.7",
     "graphql": "^16.8.1",
     "lucide-react": "^1.49.0",
+    "mammoth": "^1.13.0",
     "next": "16.3.3",
     "payload": "3.90.2",
     "react": "19.2.6",

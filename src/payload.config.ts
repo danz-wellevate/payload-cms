@@ -15,6 +15,10 @@ import { Assessments } from './collections/Assessments'
 import { ProctoringEvents } from './collections/ProctoringEvents'
 import { ProctoringRecordings } from './collections/ProctoringRecordings'
 import { ProctoringSnapshots } from './collections/ProctoringSnapshots'
+import { Jobs } from './collections/Jobs'
+import { Applications } from './collections/Applications'
+import { InterviewSlots } from './collections/InterviewSlots'
+import { Resumes } from './collections/Resumes'
 import { SiteSettings } from './globals/SiteSettings'
 import { Header } from './globals/Header'
 import { Footer } from './globals/Footer'
@@ -49,6 +53,10 @@ export default buildConfig({
     ProctoringEvents,
     ProctoringRecordings,
     ProctoringSnapshots,
+    Jobs,
+    Applications,
+    InterviewSlots,
+    Resumes,
   ],
   globals: [SiteSettings, Header, Footer, Playground],
   editor: lexicalEditor(),

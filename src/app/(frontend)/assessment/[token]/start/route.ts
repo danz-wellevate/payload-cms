@@ -6,6 +6,7 @@ import {
   findAssessmentByToken,
   getPayloadClient,
   isInviteExpired,
+  isNotYetAvailable,
   logEvent,
 } from '@/assessment/server'
 
@@ -20,10 +21,17 @@ export async function POST(request: Request, { params }: Args) {
 
   let assessment = await finalizeIfOverdue(payload, found)
   if (assessment.status === 'completed') {
-    return NextResponse.json({ error: 'This assessment has already been submitted.' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'This assessment has already been submitted.' },
+      { status: 409 },
+    )
   }
   if (isInviteExpired(assessment)) {
     return NextResponse.json({ error: 'This invite has expired.' }, { status: 410 })
+  }
+
+  if (isNotYetAvailable(assessment)) {
+    return NextResponse.json({ error: 'This assessment has not opened yet.' }, { status: 403 })
   }
 
   const detail = request.headers.get('user-agent')?.slice(0, 250)

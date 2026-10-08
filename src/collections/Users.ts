@@ -26,6 +26,20 @@ export const Users: CollectionConfig = {
   },
   fields: [
     // Email added by default
-    // Add more fields as needed
+    { name: 'name', type: 'text' },
+    {
+      name: 'role',
+      type: 'select',
+      defaultValue: 'admin',
+      options: [
+        { label: 'Admin', value: 'admin' },
+        { label: 'Head of Plus', value: 'head_of_plus' },
+      ],
+      admin: {
+        position: 'sidebar',
+        description:
+          'Head of Plus users get the hiring emails (booked interviews, finished assessments). If nobody has this role, every admin gets them.',
+      },
+    },
   ],
 }
