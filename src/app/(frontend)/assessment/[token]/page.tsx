@@ -10,8 +10,10 @@ import {
   findAssessmentByToken,
   getPayloadClient,
   isInviteExpired,
+  isNotYetAvailable,
 } from '@/assessment/server'
 import { AssessmentRunner } from '@/components/assessment/AssessmentRunner'
+import { formatDateTime } from '@/recruitment/format'
 
 type Args = { params: Promise<{ token: string }> }
 
@@ -53,7 +55,10 @@ export default async function AssessmentPage({ params }: Args) {
 
   // An admin-created invite is claimed by the applicant it was sent to.
   let assessment = found
-  if (assessment.applicant == null && normalizeEmail(assessment.candidateEmail) === applicant.email) {
+  if (
+    assessment.applicant == null &&
+    normalizeEmail(assessment.candidateEmail) === applicant.email
+  ) {
     assessment = await payload.update({
       collection: 'assessments',
       id: assessment.id,
@@ -85,6 +90,19 @@ export default async function AssessmentPage({ params }: Args) {
         body="This invite link has expired. Please contact the person who sent it to you."
         title="Invite expired"
       />
+    )
+  }
+
+  if (isNotYetAvailable(assessment)) {
+    return (
+      <Message
+        body={`Your technical assessment opens on ${formatDateTime(assessment.availableFrom!)}. Come back to My Profile then.`}
+        title="Not open yet"
+      >
+        <a className="button button--outline" href="/applicant">
+          Back to My Profile
+        </a>
+      </Message>
     )
   }
 

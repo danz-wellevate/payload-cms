@@ -3,7 +3,9 @@ import type { CollectionConfig, Field } from 'payload'
 import { randomBytes } from 'crypto'
 
 import { isAdmin } from '../access/isAdmin'
+import { flaggedEventTypes } from '../assessment/events'
 import { resetAssessment } from '../assessment/reset'
+import { notifyHeadOfPlusAssessmentDone } from '../recruitment/emails'
 
 const dateTime = (name: string, label: string): Field => ({
   name,
@@ -56,6 +58,47 @@ export const Assessments: CollectionConfig = {
     create: isAdmin,
     update: isAdmin,
     delete: isAdmin,
+  },
+  hooks: {
+    // Hiring workflow: keeps the linked application in step, and sends the Head of Plus the
+    // monitoring report when the candidate finishes.
+    afterChange: [
+      async ({ doc, previousDoc, req }) => {
+        if (doc.status === previousDoc?.status && doc.result === previousDoc?.result) return
+        const { docs } = await req.payload.find({
+          collection: 'applications',
+          where: { assessment: { equals: doc.id } },
+          limit: 1,
+          depth: 0,
+          req,
+        })
+        const application = docs[0]
+        if (!application) return
+
+        if (
+          application.assessmentStatus !== doc.status ||
+          application.technicalResult !== doc.result
+        ) {
+          await req.payload.update({
+            collection: 'applications',
+            id: application.id,
+            data: { assessmentStatus: doc.status, technicalResult: doc.result },
+            req,
+          })
+        }
+
+        if (doc.status === 'completed' && previousDoc?.status !== 'completed') {
+          const flagged = await req.payload.count({
+            collection: 'proctoring-events',
+            where: {
+              and: [{ assessment: { equals: doc.id } }, { type: { in: flaggedEventTypes } }],
+            },
+            req,
+          })
+          await notifyHeadOfPlusAssessmentDone(req.payload, application, doc, flagged.totalDocs)
+        }
+      },
+    ],
   },
   endpoints: [
     {
@@ -113,6 +156,16 @@ export const Assessments: CollectionConfig = {
                   min: 1,
                   max: 480,
                   required: true,
+                },
+                {
+                  name: 'availableFrom',
+                  label: 'Available from',
+                  type: 'date',
+                  admin: {
+                    date: { pickerAppearance: 'dayAndTime' },
+                    description:
+                      'Optional. The Start button appears in My Profile at this time. Set by the hiring workflow.',
+                  },
                 },
                 {
                   name: 'expiresAt',

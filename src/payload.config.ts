@@ -1,4 +1,4 @@
-import { sqliteAdapter } from '@payloadcms/db-sqlite'
+import { postgresAdapter } from '@payloadcms/db-postgres'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
@@ -15,6 +15,10 @@ import { Assessments } from './collections/Assessments'
 import { ProctoringEvents } from './collections/ProctoringEvents'
 import { ProctoringRecordings } from './collections/ProctoringRecordings'
 import { ProctoringSnapshots } from './collections/ProctoringSnapshots'
+import { Jobs } from './collections/Jobs'
+import { Applications } from './collections/Applications'
+import { InterviewSlots } from './collections/InterviewSlots'
+import { Resumes } from './collections/Resumes'
 import { SiteSettings } from './globals/SiteSettings'
 import { Header } from './globals/Header'
 import { Footer } from './globals/Footer'
@@ -49,6 +53,10 @@ export default buildConfig({
     ProctoringEvents,
     ProctoringRecordings,
     ProctoringSnapshots,
+    Jobs,
+    Applications,
+    InterviewSlots,
+    Resumes,
   ],
   globals: [SiteSettings, Header, Footer, Playground],
   editor: lexicalEditor(),
@@ -71,9 +79,9 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URL || 'file:./payload-cms.db',
+  db: postgresAdapter({
+    pool: {
+      connectionString: process.env.DATABASE_URL,
     },
   }),
   sharp,

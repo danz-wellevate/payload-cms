@@ -1,11 +1,13 @@
 import type { Payload } from 'payload'
 
+import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
 import { generateExpiredPayloadCookie, generatePayloadCookie } from 'payload/shared'
 
 import type { Applicant } from '@/payload-types'
 
 import { getPayloadClient } from '@/assessment/server'
+import { DEFAULT_TIME_LIMIT_MINUTES } from '@/collections/Applicants'
 
 export const normalizeEmail = (value: unknown) =>
   typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -28,6 +30,30 @@ export const isAdminEmail = async (payload: Payload, email: string) =>
       overrideAccess: true,
     })
   ).totalDocs > 0
+
+// The applicant account for an email, created on first use (sign-up or applying for a job).
+// New accounts get a placeholder password nobody knows; it is replaced when the applicant
+// follows the emailed set-password link.
+export const findOrCreateApplicant = async (payload: Payload, email: string, name?: string) => {
+  const { docs } = await payload.find({
+    collection: 'applicants',
+    where: { email: { equals: email } },
+    limit: 1,
+    depth: 0,
+  })
+  if (docs[0]) return docs[0]
+
+  return payload.create({
+    collection: 'applicants',
+    data: {
+      email,
+      name: name || undefined,
+      password: randomBytes(32).toString('base64url'),
+      passwordSet: false,
+      timeLimitMinutes: DEFAULT_TIME_LIMIT_MINUTES,
+    },
+  })
+}
 
 // Whoever is logged in for the current request: an applicant, a CMS admin (`users`) or nobody.
 export const getSessionUser = async () => {
