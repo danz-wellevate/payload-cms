@@ -63,6 +63,77 @@ On first start, the app automatically creates the **Home page** and **6 sample b
 
 ---
 
+## Docker setup
+
+Docker is an alternative to the manual setup above. It pins Node and all dependencies to the same version for everyone on the team, so "works on my machine" isn't a problem.
+
+### Requirements
+
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (includes Docker Compose)
+- **Git**
+
+### First run
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/danz-wellevate/payload-cms.git
+cd payload-cms
+
+# 2. Create your local environment file
+cp .env.example .env
+# Open .env and fill in PAYLOAD_SECRET (and optionally ANTHROPIC_API_KEY, SMTP, etc.)
+
+# 3. Build the image and start the dev server (--build is required on first run)
+docker-compose up --build
+```
+
+The first `docker-compose up --build` builds the image (installs all `node_modules` inside the container) — this takes a few minutes. Subsequent starts are fast.
+
+Open http://localhost:3000 once it prints `✓ Ready`.
+
+> **Your data stays local.** The SQLite database (`payload-cms.db`), uploaded files (`media/`, `resumes/`), and recordings are bind-mounted from your project folder, so they persist across container restarts and are never shared with teammates.
+
+### Everyday use
+
+> **Before running any command**, make sure Docker Desktop is open and running. You'll see the Docker whale icon in your system tray (Windows) or menu bar (Mac). Commands like `docker-compose up` and `docker-compose run` will fail immediately if the Docker engine isn't started.
+
+```bash
+# First time on this machine (or after pulling package.json / package-lock.json changes)
+docker-compose up --build
+
+# Every other time
+docker-compose up
+
+# Stop
+docker-compose down
+
+# Run a script (e.g. seed, generate:types) inside the container
+docker-compose run --rm app npm run seed
+docker-compose run --rm app npm run generate:types
+```
+
+### After changing dependencies
+
+Whenever `package.json` or `package-lock.json` changes (someone added or removed a package), rebuild the image so `node_modules` stays in sync:
+
+```bash
+docker-compose up --build
+```
+
+### Production build
+
+The `Dockerfile` has a separate `runner` stage for production:
+
+```bash
+# Build the production image
+docker build -t payload-cms .
+
+# Run it (pass your env vars)
+docker run -p 3000:3000 --env-file .env payload-cms
+```
+
+---
+
 ## Useful scripts
 
 | Command                      | What it does                                                                                    |

@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app                  # bind-mount source for hot reload
+      - /app/node_modules       # keep the image's node_modules (not the host's)
+    env_file: .env

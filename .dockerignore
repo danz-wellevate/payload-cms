@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+media
+resumes
+proctoring-snapshots
+proctoring-recordings
+playwright-report
+test-results
