@@ -18,9 +18,14 @@ export const Users: CollectionConfig = {
     ],
   },
   // Admin accounts only. Explicit so logged-in applicants can't read or edit them.
+  // create allows the very first user when the DB is empty (fresh setup); after that isAdmin gates it.
   access: {
     read: isAdmin,
-    create: isAdmin,
+    create: async ({ req }) => {
+      if (req.user?.collection === 'users') return true
+      const { totalDocs } = await req.payload.count({ collection: 'users', overrideAccess: true })
+      return totalDocs === 0
+    },
     update: isAdmin,
     delete: isAdmin,
   },

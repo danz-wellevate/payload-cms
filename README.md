@@ -55,7 +55,7 @@ npm run dev
 
 Then:
 
-1. Open http://localhost:3000/admin and create your admin user. The first account you create becomes the admin.
+1. Open http://localhost:3000/admin and create your admin user. **Every teammate must do this on their own machine** — each person has their own PostgreSQL volume, so each machine starts with an empty database.
 2. Open http://localhost:3000 to see the site.
 
 On first start, the app automatically creates the **Home page** and **6 sample blog posts**, so you'll have content to work with right away.
