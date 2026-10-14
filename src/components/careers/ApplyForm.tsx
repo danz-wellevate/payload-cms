@@ -61,9 +61,9 @@ export const ApplyForm = ({ slug }: { slug: string }) => {
       </label>
       <label className="grid gap-1.5 text-sm font-medium">
         Resume / CV
-        <Input accept={ACCEPT} className="h-auto py-1.5" name="resume" required type="file" />
+        <Input accept={ACCEPT} className="h-auto py-1.5" name="resume" type="file" />
         <span className="text-xs font-normal text-muted-foreground">
-          PDF or Word (.docx), up to 5 MB.
+          PDF or Word (.docx), up to 5 MB. Optional for now.
         </span>
       </label>
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -663,7 +663,7 @@ export interface Application {
   email: string;
   name?: string | null;
   job: number | Job;
-  resume: number | Resume;
+  resume?: (number | null) | Resume;
   aiScore?: number | null;
   /**
    * Set automatically from the job's minimum score. Tick it to invite a candidate anyway; this emails them the booking link.

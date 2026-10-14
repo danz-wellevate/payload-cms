@@ -1,6 +1,6 @@
 # Payload CMS Website
 
-A website built with [Payload CMS 3](https://payloadcms.com/docs) and [Next.js](https://nextjs.org/docs). The website and the admin panel run as one Next.js app, and data is stored in a local SQLite file.
+A website built with [Payload CMS 3](https://payloadcms.com/docs) and [Next.js](https://nextjs.org/docs). The website and the admin panel run as one Next.js app, and data is stored in a **PostgreSQL** database (provided by Docker).
 
 Besides the CMS pages and blog, the site runs a **hiring workflow**: candidates apply with their resume, Claude scores it against the job posting, and candidates move through an initial interview, a proctored coding assessment and a final interview. See [Hiring workflow](#hiring-workflow).
 
@@ -17,6 +17,7 @@ Besides the CMS pages and blog, the site runs a **hiring workflow**: candidates 
 
 - **Node.js 20.9 or newer** (check with `node -v`)
 - **npm** (this repo uses `package-lock.json`, so please don't use yarn or pnpm)
+- **PostgreSQL 16** running locally, or use the [Docker setup](#docker-setup) which provides it automatically
 - **Git**
 
 ### Setup
@@ -30,13 +31,13 @@ cd payload-cms
 cp .env.example .env
 ```
 
-Open `.env` and set `PAYLOAD_SECRET` to any long random string. Leave `DATABASE_URL` as it is.
+Open `.env` and set `PAYLOAD_SECRET` to any long random string. Leave `DATABASE_URL` as-is — it points to the PostgreSQL container started by Docker.
 
 The other settings in `.env.example` are optional. The site runs without them:
 
 | Variable                                   | What it's for                                                                                                                                                           | Without it                                                                          |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`                        | AI resume review. Create a key at [platform.claude.com](https://platform.claude.com) (pay-as-you-go API credits; a Claude Pro subscription doesn't include API access). | Applications show **AI review failed** and candidates aren't invited automatically. |
+| `ANTHROPIC_API_KEY`                        | AI resume review. Create a key at [platform.claude.com](https://platform.claude.com) (pay-as-you-go API credits; a Claude Pro subscription doesn't include API access). | AI review is **bypassed** — the application is auto-passed with a score of 100% so you can test the full workflow without a key. |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, ... | Sending emails (set-password links, interview invites, schedules, Head of Plus notifications).                                                                          | Emails are printed in the dev server's terminal instead of being sent.              |
 | `NEXT_PUBLIC_SERVER_URL`                   | The site's public address, used for links in emails.                                                                                                                    | Links point to `http://localhost:3000`.                                             |
 | `HIRING_TIME_ZONE`                         | Time zone for interview and assessment times in emails and on the booking page.                                                                                         | `Asia/Manila`.                                                                      |
@@ -59,7 +60,7 @@ Then:
 
 On first start, the app automatically creates the **Home page** and **6 sample blog posts**, so you'll have content to work with right away.
 
-> **Your database is local to your machine.** `payload-cms.db` and `.env` are gitignored and never committed, so content you create in your admin panel isn't shared with the team. Only code is shared through git.
+> **Your database is local to your machine.** PostgreSQL data lives in the `db-data` Docker volume on your machine and `.env` is gitignored, so content you create in your admin panel isn't shared with the team. Only code is shared through git.
 
 ---
 

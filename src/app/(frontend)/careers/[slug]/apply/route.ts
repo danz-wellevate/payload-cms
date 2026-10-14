@@ -32,19 +32,6 @@ export async function POST(request: Request, { params }: Args) {
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
   }
-  if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: 'Attach your resume.' }, { status: 400 })
-  }
-  if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json(
-      { error: 'Upload your resume as a PDF or Word (.docx) file.' },
-      { status: 400 },
-    )
-  }
-  if (file.size > MAX_RESUME_BYTES) {
-    return NextResponse.json({ error: 'The resume must be 5 MB or smaller.' }, { status: 400 })
-  }
-
   const payload = await getPayloadClient()
   const { docs } = await payload.find({
     collection: 'jobs',
@@ -72,27 +59,39 @@ export async function POST(request: Request, { params }: Args) {
     )
   }
 
-  // Payload checks the file's real contents, not just its extension.
-  let resume
-  try {
-    resume = await payload.create({
-      collection: 'resumes',
-      data: {},
-      file: {
-        data: Buffer.from(await file.arrayBuffer()),
-        mimetype: file.type,
-        name: file.name.replace(/[^\w.-]+/g, '_').slice(-100) || 'resume',
-        size: file.size,
-      },
-    })
-  } catch (err) {
-    if (err instanceof ValidationError) {
+  // Upload the resume only if one was attached.
+  let resumeId: number | undefined
+  if (file instanceof File && file.size > 0) {
+    if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: "We couldn't read that file. Please upload a valid PDF or Word (.docx) file." },
+        { error: 'Upload your resume as a PDF or Word (.docx) file.' },
         { status: 400 },
       )
     }
-    throw err
+    if (file.size > MAX_RESUME_BYTES) {
+      return NextResponse.json({ error: 'The resume must be 5 MB or smaller.' }, { status: 400 })
+    }
+    try {
+      const resume = await payload.create({
+        collection: 'resumes',
+        data: {},
+        file: {
+          data: Buffer.from(await file.arrayBuffer()),
+          mimetype: file.type,
+          name: file.name.replace(/[^\w.-]+/g, '_').slice(-100) || 'resume',
+          size: file.size,
+        },
+      })
+      resumeId = resume.id
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return NextResponse.json(
+          { error: "We couldn't read that file. Please upload a valid PDF or Word (.docx) file." },
+          { status: 400 },
+        )
+      }
+      throw err
+    }
   }
 
   const applicant = await findOrCreateApplicant(payload, email, name)
@@ -103,7 +102,7 @@ export async function POST(request: Request, { params }: Args) {
       email,
       name: name || undefined,
       job: job.id,
-      resume: resume.id,
+      resume: resumeId,
       applicant: applicant.id,
       aiStatus: 'pending',
     },

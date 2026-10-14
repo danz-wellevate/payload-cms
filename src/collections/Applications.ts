@@ -215,7 +215,7 @@ export const Applications: CollectionConfig = {
       type: 'row',
       fields: [
         { name: 'job', type: 'relationship', relationTo: 'jobs', required: true, index: true },
-        { name: 'resume', type: 'upload', relationTo: 'resumes', required: true },
+        { name: 'resume', type: 'upload', relationTo: 'resumes', required: false },
       ],
     },
     {
