@@ -633,9 +633,23 @@ export interface Job {
    */
   summary?: string | null;
   /**
-   * One per line. The AI review checks the resume against each of these.
+   * Use bullet or numbered lists. The AI review checks each item against the resume.
    */
-  qualifications: string;
+  qualifications: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
   requiredSkills: {
     skill: string;
     id?: string | null;

@@ -105,8 +105,11 @@ docker-compose up --build
 # Every other time
 docker-compose up
 
-# Stop
+# Stop (keeps your database data)
 docker-compose down
+
+# ⚠️  Stop AND wipe the database — only use this to start completely fresh (you will lose all data)
+docker-compose down -v
 
 # Run a script (e.g. seed, generate:types) inside the container
 docker-compose run --rm app npm run seed
@@ -202,7 +205,7 @@ src/
 | **Settings → Footer**                   | Footer link columns and copyright                                               |
 | **Pages**                               | Pages built from section blocks. The page with slug `home` is the homepage.     |
 | **Blog Posts**                          | Blog articles                                                                   |
-| **Hiring → Job postings**               | Jobs listed at `/careers`, with the qualifications and skills the AI checks     |
+| **Hiring → Job postings**               | Jobs listed at `/careers`. **Qualifications** is a rich-text field with bullet/numbered-list support — the AI checks each list item against the resume. |
 | **Hiring → Applications**               | Each candidate's progress through the hiring workflow                           |
 | **Hiring → Interview slots**            | Times candidates can book for the initial interview                             |
 | **Assessments → Applicants**            | Applicant accounts and their exam time limit                                    |

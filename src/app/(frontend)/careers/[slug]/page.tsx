@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
 
-import { ArrowLeft, Briefcase, CircleCheck, MapPin } from 'lucide-react'
+import { ArrowLeft, Briefcase, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import React from 'react'
+
+import { RichText } from '@payloadcms/richtext-lexical/react'
 
 import { getPayloadClient } from '@/assessment/server'
 import { ApplyForm } from '@/components/careers/ApplyForm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { qualificationsOf } from '@/recruitment/jobs'
 import '@/styles/shadcn.css'
 
 type Args = { params: Promise<{ slug: string }> }
@@ -35,8 +36,6 @@ export async function generateMetadata({ params }: Args): Promise<Metadata> {
 export default async function JobPage({ params }: Args) {
   const job = await findJob((await params).slug)
   if (!job) notFound()
-
-  const qualifications = qualificationsOf(job)
 
   return (
     <div className="shadcn mx-auto w-full max-w-4xl px-6 py-12 md:py-16">
@@ -65,13 +64,9 @@ export default async function JobPage({ params }: Args) {
         <div className="grid gap-6">
           <section>
             <h2 className="text-lg font-semibold">Qualifications</h2>
-            <ul className="mt-3 grid gap-2">
-              {qualifications.map((q) => (
-                <li className="flex items-start gap-2.5 text-sm" key={q}>
-                  <CircleCheck className="mt-0.5 size-4 shrink-0 text-primary" /> {q}
-                </li>
-              ))}
-            </ul>
+            <div className="prose prose-sm mt-3 max-w-none dark:prose-invert">
+              <RichText data={job.qualifications} />
+            </div>
           </section>
           <section>
             <h2 className="text-lg font-semibold">Required skills</h2>

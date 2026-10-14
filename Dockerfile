@@ -6,6 +6,8 @@ WORKDIR /app
 
 # ── deps ──────────────────────────────────────────────────────────────────────
 FROM base AS deps
+# build tools needed to compile native modules (better-sqlite3, etc.)
+RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
