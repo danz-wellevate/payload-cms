@@ -1,12 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import {
-  lexicalEditor,
-  BoldFeature,
-  ItalicFeature,
-  UnorderedListFeature,
-  OrderedListFeature,
-  ParagraphFeature,
-} from '@payloadcms/richtext-lexical'
+import { lexicalEditor, FixedToolbarFeature } from '@payloadcms/richtext-lexical'
 
 import { isAdmin } from '../access/isAdmin'
 
@@ -77,13 +70,7 @@ export const Jobs: CollectionConfig = {
       type: 'richText',
       required: true,
       editor: lexicalEditor({
-        features: () => [
-          ParagraphFeature(),
-          BoldFeature(),
-          ItalicFeature(),
-          UnorderedListFeature(),
-          OrderedListFeature(),
-        ],
+        features: ({ defaultFeatures }) => [...defaultFeatures, FixedToolbarFeature()],
       }),
       admin: {
         description: 'Use bullet or numbered lists. The AI review checks each item against the resume.',

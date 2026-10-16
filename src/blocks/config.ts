@@ -150,10 +150,37 @@ export const LatestPostsBlock: Block = {
   ],
 }
 
+export const CareersHeroBlock: Block = {
+  slug: 'careersHero',
+  interfaceName: 'CareersHeroBlock',
+  labels: { singular: 'Careers Hero', plural: 'Careers Heroes' },
+  fields: [
+    { name: 'heading', type: 'text', required: true, defaultValue: 'Join the Team' },
+    {
+      name: 'description',
+      type: 'textarea',
+      defaultValue:
+        'If you bring quality, drive, and genuine team spirit, you will fit right in at Wellevate.',
+    },
+  ],
+}
+
+export const JobListingsBlock: Block = {
+  slug: 'jobListings',
+  interfaceName: 'JobListingsBlock',
+  labels: { singular: 'Job Listings', plural: 'Job Listings' },
+  fields: [
+    { name: 'heading', type: 'text', defaultValue: 'Open Positions' },
+    { name: 'subheading', type: 'textarea', label: 'Sub Paragraph' },
+  ],
+}
+
 export const pageBlocks = [
   HeroBlock,
   FeaturesBlock,
   ContentStatsBlock,
   LatestPostsBlock,
   CallToActionBlock,
+  CareersHeroBlock,
+  JobListingsBlock,
 ]

@@ -186,7 +186,17 @@ export interface Page {
    * Use "home" for the homepage. Other pages are served at /<slug>.
    */
   slug: string;
-  layout?: (HeroBlock | FeaturesBlock | ContentStatsBlock | LatestPostsBlock | CallToActionBlock)[] | null;
+  layout?:
+    | (
+        | HeroBlock
+        | FeaturesBlock
+        | ContentStatsBlock
+        | LatestPostsBlock
+        | CallToActionBlock
+        | CareersHeroBlock
+        | JobListingsBlock
+      )[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -312,6 +322,28 @@ export interface CallToActionBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'cta';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CareersHeroBlock".
+ */
+export interface CareersHeroBlock {
+  heading: string;
+  description?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'careersHero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "JobListingsBlock".
+ */
+export interface JobListingsBlock {
+  heading?: string | null;
+  subheading?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'jobListings';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -923,6 +955,8 @@ export interface PagesSelect<T extends boolean = true> {
         contentStats?: T | ContentStatsBlockSelect<T>;
         latestPosts?: T | LatestPostsBlockSelect<T>;
         cta?: T | CallToActionBlockSelect<T>;
+        careersHero?: T | CareersHeroBlockSelect<T>;
+        jobListings?: T | JobListingsBlockSelect<T>;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -1014,6 +1048,26 @@ export interface CallToActionBlockSelect<T extends boolean = true> {
         url?: T;
         newTab?: T;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CareersHeroBlock_select".
+ */
+export interface CareersHeroBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "JobListingsBlock_select".
+ */
+export interface JobListingsBlockSelect<T extends boolean = true> {
+  heading?: T;
+  subheading?: T;
   id?: T;
   blockName?: T;
 }
@@ -1346,6 +1400,7 @@ export interface SiteSetting {
      */
     headingFont?:
       | (
+          | 'saans'
           | 'inter'
           | 'roboto'
           | 'open-sans'
@@ -1366,6 +1421,7 @@ export interface SiteSetting {
      */
     bodyFont?:
       | (
+          | 'saans'
           | 'inter'
           | 'roboto'
           | 'open-sans'

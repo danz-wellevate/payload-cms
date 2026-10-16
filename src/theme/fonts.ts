@@ -1,6 +1,8 @@
 // Google Fonts available in General Settings → Theme.
 // To add a font, append an entry here; the admin select and frontend loader both read this list.
+// family: null means the font is loaded locally (public/fonts/) via @font-face, not Google Fonts.
 export const themeFonts = [
+  { label: 'Saans', value: 'saans', family: null, fallback: "'Saans', sans-serif" },
   { label: 'Inter', value: 'inter', family: 'Inter', fallback: 'sans-serif' },
   { label: 'Roboto', value: 'roboto', family: 'Roboto', fallback: 'sans-serif' },
   { label: 'Open Sans', value: 'open-sans', family: 'Open Sans', fallback: 'sans-serif' },
@@ -19,8 +21,8 @@ export const themeFonts = [
 export type ThemeFontValue = (typeof themeFonts)[number]['value']
 
 export const themeDefaults = {
-  headingFont: 'poppins',
-  bodyFont: 'inter',
+  headingFont: 'saans',
+  bodyFont: 'saans',
   primaryColor: '#4f46e5',
   backgroundColor: '#ffffff',
   surfaceColor: '#f5f5f7',

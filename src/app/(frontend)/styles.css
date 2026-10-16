@@ -1,8 +1,42 @@
+/* ── Saans (local web font) ─────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Saans';
+  src: url('/fonts/Saans-Light.woff2') format('woff2'),
+       url('/fonts/Saans-Light.woff') format('woff');
+  font-weight: 300 400; /* covers Light (300) and Regular (400) — no separate Regular file */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Saans';
+  src: url('/fonts/Saans-Bold.woff2') format('woff2'),
+       url('/fonts/Saans-Bold.woff') format('woff');
+  font-weight: 500 700; /* covers Medium (500), SemiBold (600), Bold (700) */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Saans';
+  src: url('/fonts/Saans-Heavy.woff2') format('woff2'),
+       url('/fonts/Saans-Heavy.woff') format('woff');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SaansMono';
+  src: url('/fonts/SaansMono-Regular.woff2') format('woff2'),
+       url('/fonts/SaansMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Theme variables are injected on <html> from General Settings → Theme (see layout.tsx).
    These are fallbacks only. */
 :root {
-  --font-heading: system-ui, sans-serif;
-  --font-body: system-ui, sans-serif;
+  --font-heading: 'Saans', sans-serif;
+  --font-body: 'Saans', sans-serif;
   --color-primary: #4f46e5;
   --color-on-primary: #ffffff;
   --color-bg: #ffffff;
@@ -309,6 +343,59 @@ img {
   }
 }
 
+/* Careers banner */
+.careers-banner {
+  padding: clamp(56px, 10vw, 112px) 0 clamp(48px, 8vw, 88px);
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    color-mix(in srgb, var(--color-primary) 10%, transparent),
+    transparent 70%
+  );
+  border-bottom: 1px solid var(--color-border);
+}
+
+.careers-banner__inner {
+  max-width: 640px;
+}
+
+.careers-banner__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.careers-banner__eyebrow-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.careers-banner__heading {
+  margin-bottom: 30px;
+  font-family: var(--font-heading, sans-serif);
+  font-size: clamp(2.25rem, 5vw + 1rem, 3.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-heading);
+  text-wrap: balance;
+}
+
+.careers-banner__description {
+  margin: 0;
+  font-size: clamp(1rem, 1.5vw + 0.5rem, 1.1875rem);
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  max-width: 520px;
+  text-wrap: balance;
+}
+
 /* Sections */
 .hero {
   padding: clamp(64px, 12vw, 140px) 0;
@@ -342,6 +429,30 @@ img {
   max-width: 620px;
   margin: 0 auto 48px;
   text-align: center;
+}
+
+.job-list__heading {
+  margin-bottom: 32px;
+}
+
+.job-list__heading h2 {
+  margin: 0 0 8px;
+}
+
+.job-list__heading p {
+  margin: 0;
+}
+
+.job-list__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .job-list__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cardGrid {

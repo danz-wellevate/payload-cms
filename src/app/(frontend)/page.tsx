@@ -1,13 +1,22 @@
-import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
+
 import React from 'react'
 
 import { RenderBlocks } from '@/components/blocks/RenderBlocks'
-import { getPageBySlug } from '@/theme/getSiteData'
+import { getPageBySlug, getSiteData } from '@/theme/getSiteData'
+import '@/styles/shadcn.css'
 
-// Content lives in Admin → Pages → "Home" (slug: home).
+export async function generateMetadata(): Promise<Metadata> {
+  const [page, { settings }] = await Promise.all([getPageBySlug('home'), getSiteData()])
+  if (!page) return { title: 'Home' }
+  return { title: settings.siteName ? `${page.title} | ${settings.siteName}` : page.title }
+}
+
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   const page = await getPageBySlug('home')
-  if (!page) notFound()
+  if (!page) return null
 
   return <RenderBlocks blocks={page.layout} />
 }
