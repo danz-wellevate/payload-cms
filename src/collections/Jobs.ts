@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalEditor, FixedToolbarFeature } from '@payloadcms/richtext-lexical'
 
 import { isAdmin } from '../access/isAdmin'
 
@@ -66,11 +67,13 @@ export const Jobs: CollectionConfig = {
     },
     {
       name: 'qualifications',
-      type: 'textarea',
+      type: 'richText',
       required: true,
+      editor: lexicalEditor({
+        features: ({ defaultFeatures }) => [...defaultFeatures, FixedToolbarFeature()],
+      }),
       admin: {
-        description: 'One per line. The AI review checks the resume against each of these.',
-        rows: 6,
+        description: 'Use bullet or numbered lists. The AI review checks each item against the resume.',
       },
     },
     {

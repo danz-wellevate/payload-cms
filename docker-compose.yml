@@ -1,6 +1,10 @@
+name: payload-cms
+
 services:
   db:
     image: postgres:16-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: payload
       POSTGRES_USER: postgres
@@ -23,6 +27,10 @@ services:
       - .:/app                  # bind-mount source for hot reload
       - /app/node_modules       # keep the image's node_modules (not the host's)
     env_file: .env
+    environment:
+      # Forces file-watcher polling so edits on the Windows host trigger HMR
+      # inside the Linux container (inotify events don't cross the Docker bridge).
+      WATCHPACK_POLLING: "true"
     depends_on:
       db:
         condition: service_healthy
