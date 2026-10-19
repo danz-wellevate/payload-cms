@@ -1484,6 +1484,10 @@ export interface Header {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Used by the "Go to Main website" link in the header menu.
+   */
+  mainWebsiteUrl?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1593,6 +1597,7 @@ export interface HeaderSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  mainWebsiteUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

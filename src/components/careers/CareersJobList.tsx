@@ -15,7 +15,7 @@ type Props = {
 
 export function CareersJobList({ jobs, heading, subheading }: Props) {
   return (
-    <div className="shadcn container py-12">
+    <div className="shadcn container py-20">
       {(heading || subheading) && (
         <div className="job-list__heading">
           {heading && <h2>{heading}</h2>}

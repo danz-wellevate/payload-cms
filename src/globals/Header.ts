@@ -28,5 +28,13 @@ export const Header: GlobalConfig = {
         },
       ],
     },
+    {
+      name: 'mainWebsiteUrl',
+      type: 'text',
+      label: 'Main Website URL',
+      admin: {
+        description: 'Used by the "Go to Main website" link in the header menu.',
+      },
+    },
   ],
 }

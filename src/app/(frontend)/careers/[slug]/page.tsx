@@ -38,7 +38,7 @@ export default async function JobPage({ params }: Args) {
   if (!job) notFound()
 
   return (
-    <div className="shadcn mx-auto w-full max-w-4xl px-6 py-12 md:py-16">
+    <div className="shadcn mx-auto w-full max-w-[var(--container)] px-6 py-12 md:py-16">
       <Link
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         href="/careers"
