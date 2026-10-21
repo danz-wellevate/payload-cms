@@ -196,7 +196,6 @@ img {
   top: 0;
   z-index: 10;
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-  border-bottom: 1px solid var(--color-border);
   backdrop-filter: blur(10px);
 }
 
@@ -217,7 +216,7 @@ img {
 
 .siteHeader__brand img {
   width: auto;
-  max-height: 36px;
+  max-width: 220.313px;
 }
 
 .siteHeader__toggle {
@@ -225,22 +224,56 @@ img {
 }
 
 .siteHeader__burger {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+
+.siteHeader__burger span,
+.siteHeader__burger span::before,
+.siteHeader__burger span::after {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--color-heading);
+  content: '';
+}
+
+.siteHeader__burger span {
+  position: relative;
+}
+
+.siteHeader__burger span::before {
+  position: absolute;
+  top: -6px;
+}
+
+.siteHeader__burger span::after {
+  position: absolute;
+  top: 6px;
+}
+
+.siteNav {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   display: none;
+  padding: 12px var(--gutter) 20px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.siteHeader__toggle:checked ~ .siteNav {
+  display: block;
 }
 
 .siteNav ul {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.siteNav > ul {
-  display: flex;
-  gap: 4px;
-}
-
-.siteNav li {
-  position: relative;
 }
 
 .siteNav a {
@@ -257,92 +290,6 @@ img {
   color: var(--color-heading);
 }
 
-.siteNav__submenu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  min-width: 200px;
-  padding: 6px !important;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.08);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(4px);
-  transition: all 0.15s ease;
-}
-
-.siteNav li:hover > .siteNav__submenu,
-.siteNav li:focus-within > .siteNav__submenu {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-}
-
-@media (max-width: 768px) {
-  .siteHeader__burger {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    cursor: pointer;
-  }
-
-  .siteHeader__burger span,
-  .siteHeader__burger span::before,
-  .siteHeader__burger span::after {
-    display: block;
-    width: 20px;
-    height: 2px;
-    background: var(--color-heading);
-    content: '';
-  }
-
-  .siteHeader__burger span {
-    position: relative;
-  }
-
-  .siteHeader__burger span::before {
-    position: absolute;
-    top: -6px;
-  }
-
-  .siteHeader__burger span::after {
-    position: absolute;
-    top: 6px;
-  }
-
-  .siteNav {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    display: none;
-    padding: 12px var(--gutter) 20px;
-    background: var(--color-bg);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .siteHeader__toggle:checked ~ .siteNav {
-    display: block;
-  }
-
-  .siteNav > ul {
-    flex-direction: column;
-  }
-
-  .siteNav__submenu {
-    position: static;
-    padding: 0 0 0 12px !important;
-    border: 0;
-    box-shadow: none;
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-  }
-}
-
 /* Careers banner */
 .careers-banner {
   padding: clamp(56px, 10vw, 112px) 0 clamp(48px, 8vw, 88px);
@@ -352,6 +299,9 @@ img {
     transparent 70%
   );
   border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  height: 100vh;
 }
 
 .careers-banner__inner {
@@ -396,6 +346,7 @@ img {
   text-wrap: balance;
 }
 
+
 /* Sections */
 .hero {
   padding: clamp(64px, 12vw, 140px) 0;
@@ -431,6 +382,10 @@ img {
   text-align: center;
 }
 
+.job-list__wrapper {
+  padding: 100px 0;
+}
+
 .job-list__heading {
   margin-bottom: 32px;
 }
@@ -453,6 +408,148 @@ img {
   .job-list__grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Rich text (Lexical) output, e.g. job Qualifications. The renderer emits plain
+   h1-h6/p/ul/ol/li/a/blockquote with no styling of its own (lists use the
+   `list-bullet`/`list-number`/`list-check` classes but no visual list-style),
+   so this is the only thing giving that content readable type + spacing. */
+.richtext {
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.richtext > :first-child {
+  margin-top: 0;
+}
+
+.richtext > :last-child {
+  margin-bottom: 0;
+}
+
+.richtext :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.75em 0 0.6em;
+  color: var(--color-heading);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.richtext h1 {
+  font-size: 1.375rem;
+}
+
+.richtext h2 {
+  font-size: 1.1875rem;
+}
+
+.richtext h3 {
+  font-size: 1.0625rem;
+}
+
+.richtext :is(h4, h5, h6) {
+  font-size: 0.9375rem;
+}
+
+.richtext p {
+  margin: 0 0 1em;
+}
+
+.richtext a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.richtext strong {
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.richtext code {
+  padding: 0.15em 0.4em;
+  background: var(--color-surface);
+  border-radius: 4px;
+  font-family: 'SaansMono', ui-monospace, monospace;
+  font-size: 0.875em;
+}
+
+.richtext pre {
+  margin: 0 0 1em;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.richtext pre code {
+  padding: 0;
+  background: none;
+}
+
+.richtext blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.richtext hr {
+  margin: 2em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.richtext :is(ul, ol) {
+  margin: 0 0 1em;
+  padding-left: 1.25em;
+  display: grid;
+  gap: 0.5em;
+}
+
+.richtext ul.list-bullet {
+  list-style: disc;
+}
+
+.richtext ol.list-number {
+  list-style: decimal;
+}
+
+.richtext ul.list-check {
+  list-style: none;
+  padding-left: 0;
+}
+
+.richtext ul.list-check li {
+  padding-left: 1.6em;
+  position: relative;
+}
+
+.richtext ul.list-check li::before {
+  content: '';
+  position: absolute;
+  top: 0.35em;
+  left: 0;
+  width: 1em;
+  height: 1em;
+  border: 1.5px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.richtext li {
+  margin: 0;
+  padding: 0;
+}
+
+.richtext li::marker {
+  color: var(--color-primary);
+}
+
+.richtext li > :is(ul, ol) {
+  margin-top: 0.5em;
 }
 
 .cardGrid {
@@ -539,33 +636,38 @@ img {
 
 /* Footer */
 .siteFooter {
-  padding: 56px 0 32px;
+  padding: 20px 0;
   border-top: 1px solid var(--color-border);
 }
 
-.siteFooter__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+.siteFooter__inner {
+  display: flex;
+  align-items: center;
   gap: 32px;
-  margin-bottom: 40px;
 }
 
 .siteFooter__brand {
-  margin-bottom: 0.5em;
+  display: inline-flex;
+  align-items: center;
   color: var(--color-heading);
   font-family: var(--font-heading);
   font-size: 1.125rem;
   font-weight: 700;
+  text-decoration: none;
 }
 
-.siteFooter ul {
+.siteFooter__brand img {
+  max-width: 220.313px;
+}
+
+.siteFooter__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.siteFooter li + li {
-  margin-top: 8px;
 }
 
 .siteFooter a {
@@ -575,13 +677,6 @@ img {
 
 .siteFooter a:hover {
   color: var(--color-primary);
-}
-
-.siteFooter__copyright {
-  margin: 0;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.875rem;
 }
 
 .sectionFooter {

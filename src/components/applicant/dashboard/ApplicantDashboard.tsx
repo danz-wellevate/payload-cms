@@ -143,7 +143,7 @@ export const ApplicantDashboard = ({
   const reviewed = state === 'passed' || state === 'failed'
 
   return (
-    <div className="shadcn mx-auto w-full max-w-4xl px-6 py-12 md:py-16">
+    <div className="shadcn mx-auto w-full max-w-5/6 px-6 py-12 md:py-16">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold tracking-wide text-primary uppercase">My profile</p>

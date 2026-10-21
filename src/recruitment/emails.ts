@@ -23,6 +23,29 @@ export const schedulingLink = (token: string) =>
 export const adminApplicationLink = (id: number | string) =>
   `${siteUrl()}/admin/collections/applications/${id}`
 
+export const assessmentInviteLink = (token: string) =>
+  `${siteUrl()}/assessment/${encodeURIComponent(token)}`
+
+// A coding assessment was created directly in the Assessments collection (not via the hiring
+// pipeline, which emails its own "book your interview" / "technical assessment scheduled"
+// messages instead — see sendAssessmentScheduled below).
+export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =>
+  send(
+    payload,
+    assessment.candidateEmail,
+    'Your coding assessment is ready',
+    layout([
+      `Hi ${escapeHtml(assessment.candidateName?.trim() || 'there')},`,
+      `You have been invited to a coding assessment${
+        assessment.durationMinutes ? ` (${assessment.durationMinutes} minutes)` : ''
+      }.`,
+      assessment.expiresAt
+        ? `Please complete it before <strong>${escapeHtml(formatDateTime(assessment.expiresAt))}</strong>.`
+        : 'Start it whenever you are ready.',
+      button(assessmentInviteLink(assessment.token ?? ''), 'Start the assessment'),
+    ]),
+  )
+
 // Email failures are logged but never block saving the application.
 const send = async (payload: Payload, to: string | string[], subject: string, html: string) => {
   const recipients = Array.isArray(to) ? to : [to]
@@ -47,6 +70,22 @@ export const headOfPlusEmails = async (payload: Payload) => {
   const all = await payload.find({ collection: 'users', limit: 50, depth: 0, overrideAccess: true })
   return all.docs.map((u) => u.email)
 }
+
+// Step 2: a candidate applied. Fires on every new application, regardless of AI score.
+export const notifyHeadOfPlusNewApplication = async (payload: Payload, app: Application, job: Job) =>
+  send(
+    payload,
+    await headOfPlusEmails(payload),
+    `New application: ${app.name || app.email} (${job.title})`,
+    layout([
+      'Hi,',
+      `<strong>${escapeHtml(app.name || app.email)}</strong> (${escapeHtml(app.email)}) applied for <strong>${escapeHtml(job.title)}</strong>.`,
+      app.resume
+        ? 'A resume was attached. The AI review is running now and will invite them to schedule if they match.'
+        : 'No resume was attached.',
+      button(adminApplicationLink(app.id), 'Open the application'),
+    ]),
+  )
 
 // Step 3: the AI score reached the job's minimum.
 export const sendSchedulingInvite = (payload: Payload, app: Application, job: Job) =>

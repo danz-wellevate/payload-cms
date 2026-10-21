@@ -658,6 +658,10 @@ export interface Job {
    */
   slug?: string | null;
   status: 'open' | 'closed';
+  /**
+   * Shown as a badge on the listing and used to filter /careers.
+   */
+  department: 'design' | 'engage' | 'plus' | 'advise';
   location?: string | null;
   employmentType?: string | null;
   /**
@@ -1265,6 +1269,7 @@ export interface JobsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   status?: T;
+  department?: T;
   location?: T;
   employmentType?: T;
   summary?: T;
@@ -1484,6 +1489,10 @@ export interface Header {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Used by the "Go to Main website" link in the header menu.
+   */
+  mainWebsiteUrl?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1593,6 +1602,7 @@ export interface HeaderSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  mainWebsiteUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

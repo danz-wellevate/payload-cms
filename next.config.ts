@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
   ...(process.env.NODE_ENV === 'development' && {
     experimental: {
       staleTimes: { dynamic: 0, static: 30 },
+      // Next caches fetch() responses in Server Components across HMR refreshes by default.
+      serverComponentsHmrCache: false,
     },
     headers: async () => [
       {

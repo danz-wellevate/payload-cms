@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { lexicalEditor, FixedToolbarFeature } from '@payloadcms/richtext-lexical'
 
 import { isAdmin } from '../access/isAdmin'
+import { DEPARTMENTS } from '../lib/departments'
 
 export const DEFAULT_MINIMUM_SCORE = 80
 
@@ -20,7 +21,7 @@ export const Jobs: CollectionConfig = {
   admin: {
     group: 'Hiring',
     useAsTitle: 'title',
-    defaultColumns: ['title', 'status', 'location', 'minimumScore', 'updatedAt'],
+    defaultColumns: ['title', 'department', 'status', 'location', 'minimumScore', 'updatedAt'],
     description: 'Open postings are listed at /careers, where candidates apply with their resume.',
   },
   access: {
@@ -52,6 +53,17 @@ export const Jobs: CollectionConfig = {
         { label: 'Closed', value: 'closed' },
       ],
       admin: { position: 'sidebar' },
+    },
+    {
+      name: 'department',
+      type: 'select',
+      required: true,
+      defaultValue: DEPARTMENTS[0].value,
+      options: DEPARTMENTS.map(({ label, value }) => ({ label, value })),
+      admin: {
+        position: 'sidebar',
+        description: 'Shown as a badge on the listing and used to filter /careers.',
+      },
     },
     {
       type: 'row',
