@@ -23,6 +23,29 @@ export const schedulingLink = (token: string) =>
 export const adminApplicationLink = (id: number | string) =>
   `${siteUrl()}/admin/collections/applications/${id}`
 
+export const assessmentInviteLink = (token: string) =>
+  `${siteUrl()}/assessment/${encodeURIComponent(token)}`
+
+// A coding assessment was created directly in the Assessments collection (not via the hiring
+// pipeline, which emails its own "book your interview" / "technical assessment scheduled"
+// messages instead — see sendAssessmentScheduled below).
+export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =>
+  send(
+    payload,
+    assessment.candidateEmail,
+    'Your coding assessment is ready',
+    layout([
+      `Hi ${escapeHtml(assessment.candidateName?.trim() || 'there')},`,
+      `You have been invited to a coding assessment${
+        assessment.durationMinutes ? ` (${assessment.durationMinutes} minutes)` : ''
+      }.`,
+      assessment.expiresAt
+        ? `Please complete it before <strong>${escapeHtml(formatDateTime(assessment.expiresAt))}</strong>.`
+        : 'Start it whenever you are ready.',
+      button(assessmentInviteLink(assessment.token ?? ''), 'Start the assessment'),
+    ]),
+  )
+
 // Email failures are logged but never block saving the application.
 const send = async (payload: Payload, to: string | string[], subject: string, html: string) => {
   const recipients = Array.isArray(to) ? to : [to]

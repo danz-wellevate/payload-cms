@@ -35,6 +35,8 @@ const openExam = async (request: Request) => {
         status: 'invited',
         result: 'pending',
       },
+      // The applicant is about to be redirected straight into it, so no invite email needed.
+      context: { skipInviteEmail: true },
     })
   }
 

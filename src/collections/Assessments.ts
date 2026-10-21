@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto'
 import { isAdmin } from '../access/isAdmin'
 import { flaggedEventTypes } from '../assessment/events'
 import { resetAssessment } from '../assessment/reset'
-import { notifyHeadOfPlusAssessmentDone } from '../recruitment/emails'
+import { notifyHeadOfPlusAssessmentDone, sendAssessmentInvite } from '../recruitment/emails'
 
 const dateTime = (name: string, label: string): Field => ({
   name,
@@ -63,6 +63,13 @@ export const Assessments: CollectionConfig = {
     // Hiring workflow: keeps the linked application in step, and sends the Head of Plus the
     // monitoring report when the candidate finishes.
     afterChange: [
+      // Created directly here (not by the hiring pipeline, which sets this context flag
+      // because it sends its own "technical assessment scheduled" email instead).
+      async ({ doc, operation, req, context }) => {
+        if (operation === 'create' && !context?.skipInviteEmail) {
+          await sendAssessmentInvite(req.payload, doc)
+        }
+      },
       async ({ doc, previousDoc, req }) => {
         if (doc.status === previousDoc?.status && doc.result === previousDoc?.result) return
         const { docs } = await req.payload.find({

@@ -138,6 +138,8 @@ const afterChange: CollectionAfterChangeHook<Application> = async ({
           status: 'invited',
           result: 'pending',
         },
+        // sendAssessmentScheduled below sends its own "technical assessment scheduled" email.
+        context: { skipInviteEmail: true },
         req,
       })
       await payload.update({
