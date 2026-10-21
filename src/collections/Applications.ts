@@ -13,6 +13,7 @@ import { isAdmin } from '../access/isAdmin'
 import { runAIReview } from '../recruitment/aiReview'
 import {
   notifyHeadOfPlusInterview,
+  notifyHeadOfPlusNewApplication,
   sendAssessmentScheduled,
   sendFinalInterview,
   sendInterviewBooked,
@@ -56,7 +57,12 @@ const beforeChange: CollectionBeforeChangeHook<Application> = ({ data, originalD
 
 // Sends the emails for each step and keeps the linked assessment in sync. Every action is
 // keyed on a field changing, so re-saving an application never sends an email twice.
-const afterChange: CollectionAfterChangeHook<Application> = async ({ doc, previousDoc, req }) => {
+const afterChange: CollectionAfterChangeHook<Application> = async ({
+  doc,
+  previousDoc,
+  operation,
+  req,
+}) => {
   const { payload } = req
   const prev: Partial<Application> = previousDoc ?? {}
   const job = (
@@ -64,6 +70,11 @@ const afterChange: CollectionAfterChangeHook<Application> = async ({ doc, previo
       ? doc.job
       : await payload.findByID({ collection: 'jobs', id: doc.job, depth: 0, req })
   ) as Job
+
+  // Step 2: a candidate applied.
+  if (operation === 'create') {
+    await notifyHeadOfPlusNewApplication(payload, doc, job)
+  }
 
   // Step 3: AI score reached the minimum (or an admin ticked "Shortlisted").
   if (doc.stage === 'invited_to_schedule' && prev.stage !== 'invited_to_schedule') {

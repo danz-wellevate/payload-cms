@@ -11,6 +11,8 @@ import { getPayloadClient } from '@/assessment/server'
 import { ApplyForm } from '@/components/careers/ApplyForm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DEPARTMENT_BADGE_STYLES, departmentLabel } from '@/lib/departments'
+import { cn } from '@/lib/utils'
 import '@/styles/shadcn.css'
 
 type Args = { params: Promise<{ slug: string }> }
@@ -47,6 +49,11 @@ export default async function JobPage({ params }: Args) {
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">{job.title}</h1>
       <div className="mt-3 flex flex-wrap gap-2">
+        {job.department && (
+          <Badge className={cn(DEPARTMENT_BADGE_STYLES[job.department])} variant="outline">
+            {departmentLabel(job.department)}
+          </Badge>
+        )}
         {job.location && (
           <Badge variant="secondary">
             <MapPin /> {job.location}
@@ -64,11 +71,11 @@ export default async function JobPage({ params }: Args) {
         <div className="grid gap-6">
           <section>
             <h2 className="text-lg font-semibold">Qualifications</h2>
-            <div className="prose prose-sm mt-3 max-w-none dark:prose-invert">
+            <div className="richtext mt-3">
               <RichText data={job.qualifications} />
             </div>
           </section>
-          <section>
+          <section className="border-t pt-6">
             <h2 className="text-lg font-semibold">Required skills</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {(job.requiredSkills ?? []).map(({ skill, id }) => (
@@ -80,7 +87,7 @@ export default async function JobPage({ params }: Args) {
           </section>
         </div>
 
-        <Card>
+        <Card className="md:sticky md:top-24 md:self-start">
           <CardHeader>
             <CardTitle className="text-lg">Apply for this job</CardTitle>
             <CardDescription>

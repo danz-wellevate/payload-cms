@@ -16,18 +16,25 @@ type Args = { params: Promise<{ slug: string }> }
 
 const allowedTypes: string[] = Object.values(RESUME_MIME_TYPES)
 
-// Step 1: a candidate applies with their email and resume (multipart form: email, name, resume).
+type ApplyBody = {
+  name?: unknown
+  email?: unknown
+  resume?: { data?: unknown; name?: unknown; type?: unknown } | null
+}
+
+// Step 1: a candidate applies with their email and resume (JSON body: name, email, resume as
+// base64 — see ApplyForm.tsx for why this isn't multipart/form-data).
 // The AI review (step 2) runs after the response is sent, so the candidate doesn't wait for it.
 export async function POST(request: Request, { params }: Args) {
   const { slug } = await params
-  const form = await request.formData().catch(() => null)
-  if (!form) return NextResponse.json({ error: 'Invalid form.' }, { status: 400 })
+  const body = (await request.json().catch(() => null)) as ApplyBody | null
+  if (!body) return NextResponse.json({ error: 'Invalid form.' }, { status: 400 })
 
-  const email = normalizeEmail(form.get('email'))
-  const name = String(form.get('name') ?? '')
+  const email = normalizeEmail(body.email)
+  const name = String(body.name ?? '')
     .trim()
     .slice(0, 120)
-  const file = form.get('resume')
+  const resume = body.resume
 
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
@@ -61,28 +68,32 @@ export async function POST(request: Request, { params }: Args) {
 
   // Upload the resume only if one was attached.
   let resumeId: number | undefined
-  if (file instanceof File && file.size > 0) {
-    if (!allowedTypes.includes(file.type)) {
+  if (resume && typeof resume.data === 'string' && resume.data.length > 0) {
+    const mimetype = typeof resume.type === 'string' ? resume.type : ''
+    const originalName = typeof resume.name === 'string' ? resume.name : 'resume'
+    const data = Buffer.from(resume.data, 'base64')
+
+    if (!allowedTypes.includes(mimetype)) {
       return NextResponse.json(
         { error: 'Upload your resume as a PDF or Word (.docx) file.' },
         { status: 400 },
       )
     }
-    if (file.size > MAX_RESUME_BYTES) {
+    if (data.byteLength > MAX_RESUME_BYTES) {
       return NextResponse.json({ error: 'The resume must be 5 MB or smaller.' }, { status: 400 })
     }
     try {
-      const resume = await payload.create({
+      const created = await payload.create({
         collection: 'resumes',
         data: {},
         file: {
-          data: Buffer.from(await file.arrayBuffer()),
-          mimetype: file.type,
-          name: file.name.replace(/[^\w.-]+/g, '_').slice(-100) || 'resume',
-          size: file.size,
+          data,
+          mimetype,
+          name: originalName.replace(/[^\w.-]+/g, '_').slice(-100) || 'resume',
+          size: data.byteLength,
         },
       })
-      resumeId = resume.id
+      resumeId = created.id
     } catch (err) {
       if (err instanceof ValidationError) {
         return NextResponse.json(

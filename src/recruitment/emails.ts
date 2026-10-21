@@ -48,6 +48,22 @@ export const headOfPlusEmails = async (payload: Payload) => {
   return all.docs.map((u) => u.email)
 }
 
+// Step 2: a candidate applied. Fires on every new application, regardless of AI score.
+export const notifyHeadOfPlusNewApplication = async (payload: Payload, app: Application, job: Job) =>
+  send(
+    payload,
+    await headOfPlusEmails(payload),
+    `New application: ${app.name || app.email} (${job.title})`,
+    layout([
+      'Hi,',
+      `<strong>${escapeHtml(app.name || app.email)}</strong> (${escapeHtml(app.email)}) applied for <strong>${escapeHtml(job.title)}</strong>.`,
+      app.resume
+        ? 'A resume was attached. The AI review is running now and will invite them to schedule if they match.'
+        : 'No resume was attached.',
+      button(adminApplicationLink(app.id), 'Open the application'),
+    ]),
+  )
+
 // Step 3: the AI score reached the job's minimum.
 export const sendSchedulingInvite = (payload: Payload, app: Application, job: Job) =>
   send(
