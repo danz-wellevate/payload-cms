@@ -87,17 +87,18 @@ export const notifyHeadOfPlusNewApplication = async (payload: Payload, app: Appl
     ]),
   )
 
-// Step 3: the AI score reached the job's minimum.
+// Step 3: the AI score reached the job's minimum. The admin picks the interview time directly
+// on the application (not the candidate); this just tells them they're moving forward.
 export const sendSchedulingInvite = (payload: Payload, app: Application, job: Job) =>
   send(
     payload,
     app.email,
-    `Next step for ${job.title}: book your initial interview`,
+    `Next step for ${job.title}`,
     layout([
       greeting(app),
       `Thank you for applying for <strong>${escapeHtml(job.title)}</strong>. We reviewed your resume and would like to invite you to an initial interview.`,
-      'Choose a time that works for you:',
-      button(schedulingLink(app.schedulingToken ?? ''), 'Book your interview'),
+      "We'll be in touch shortly to confirm a time. You can check your application status anytime:",
+      button(`${siteUrl()}/applicant/login`, 'View your status'),
     ]),
   )
 
@@ -107,19 +108,23 @@ export const sendInterviewBooked = (
   app: Application,
   job: Job,
   slot: InterviewSlot | null,
-) =>
-  send(
+) => {
+  // Prefer the link pasted directly on the application (the normal path, since the admin sets
+  // the time); fall back to a booked Interview Slot's link for any still-open legacy bookings.
+  const meetingLink = app.initialInterviewLink || slot?.meetingLink
+  return send(
     payload,
     app.email,
     `Your initial interview for ${job.title} is booked`,
     layout([
       greeting(app),
       `Your initial interview for <strong>${escapeHtml(job.title)}</strong> is on <strong>${escapeHtml(formatDateTime(app.initialInterviewAt ?? ''))}</strong>.`,
-      slot?.meetingLink
-        ? `Join here: <a href="${escapeHtml(slot.meetingLink)}">${escapeHtml(slot.meetingLink)}</a>`
+      meetingLink
+        ? `Join here: <a href="${escapeHtml(meetingLink)}">${escapeHtml(meetingLink)}</a>`
         : 'We will send you the meeting details before the interview.',
     ]),
   )
+}
 
 // Step 5: tells the Head of Plus about the booked interview.
 export const notifyHeadOfPlusInterview = async (payload: Payload, app: Application, job: Job) =>

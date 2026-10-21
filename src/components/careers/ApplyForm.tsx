@@ -1,9 +1,9 @@
 'use client'
 
-import { CircleCheck, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import React, { useState } from 'react'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -22,11 +22,13 @@ const fileToBase64 = (file: File) =>
     reader.readAsDataURL(file)
   })
 
-// Step 1: email + resume. The review runs in the background; the result arrives by email.
+// Step 1: email + resume. The review runs in the background; the admin picks the interview
+// time (candidates don't self-schedule), so submitting just takes them to their dashboard to
+// track status.
 export const ApplyForm = ({ slug }: { slug: string }) => {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [sentTo, setSentTo] = useState<string | null>(null)
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -48,25 +50,12 @@ export const ApplyForm = ({ slug }: { slug: string }) => {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.')
-      setSentTo(String(email))
+      const params = new URLSearchParams({ next: '/applicant', email: String(email) })
+      router.push(`/applicant/login?${params.toString()}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
       setBusy(false)
     }
-  }
-
-  if (sentTo) {
-    return (
-      <Alert variant="success">
-        <CircleCheck />
-        <AlertTitle>Application received</AlertTitle>
-        <AlertDescription>
-          Thank you! We&apos;re reviewing your resume now. If you match the role, we&apos;ll email{' '}
-          <strong>{sentTo}</strong> a link to book your initial interview.
-        </AlertDescription>
-      </Alert>
-    )
   }
 
   return (
