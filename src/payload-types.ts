@@ -723,8 +723,12 @@ export interface Application {
   aiStrengths?: string | null;
   aiGaps?: string | null;
   aiError?: string | null;
-  initialInterviewSlot?: (number | null) | InterviewSlot;
   initialInterviewAt?: string | null;
+  /**
+   * Paste a Teams (or Zoom/Meet) meeting link. Included in the email when you save.
+   */
+  initialInterviewLink?: string | null;
+  initialInterviewSlot?: (number | null) | InterviewSlot;
   initialResult?: ('pending' | 'passed' | 'failed') | null;
   initialNotes?: string | null;
   technicalAssessmentAt?: string | null;
@@ -1300,8 +1304,9 @@ export interface ApplicationsSelect<T extends boolean = true> {
   aiStrengths?: T;
   aiGaps?: T;
   aiError?: T;
-  initialInterviewSlot?: T;
   initialInterviewAt?: T;
+  initialInterviewLink?: T;
+  initialInterviewSlot?: T;
   initialResult?: T;
   initialNotes?: T;
   technicalAssessmentAt?: T;

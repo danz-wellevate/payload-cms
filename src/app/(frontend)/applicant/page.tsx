@@ -15,7 +15,6 @@ import {
   isNotYetAvailable,
 } from '@/assessment/server'
 import { ApplicantDashboard } from '@/components/applicant/dashboard/ApplicantDashboard'
-import { schedulingLink } from '@/recruitment/emails'
 import { formatDateTime } from '@/recruitment/format'
 import '@/styles/shadcn.css'
 
@@ -68,7 +67,6 @@ export default async function ApplicantDashboardPage() {
           ? {
               jobTitle: (app.job as Job).title,
               stage: app.stage ?? 'screening',
-              schedulingHref: app.schedulingToken ? schedulingLink(app.schedulingToken) : null,
               initialInterviewAt: when(app.initialInterviewAt),
               technicalAssessmentAt: when(app.technicalAssessmentAt),
               finalInterviewAt: when(app.finalInterviewAt),

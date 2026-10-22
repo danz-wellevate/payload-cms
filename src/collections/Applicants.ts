@@ -11,6 +11,11 @@ const siteUrl = () =>
 export const setPasswordLink = (token: string) =>
   `${siteUrl()}/applicant/set-password?token=${encodeURIComponent(token)}`
 
+// Sent instead of setPasswordLink once the applicant has already finished signing up, so the
+// link opens a page that only asks for a new password (not their name again).
+export const resetPasswordLink = (token: string) =>
+  `${siteUrl()}/applicant/reset-password?token=${encodeURIComponent(token)}`
+
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 // People taking the coding exam. They sign up with just an email at /applicant/login,
@@ -30,12 +35,16 @@ export const Applicants: CollectionConfig = {
     forgotPassword: {
       // Also used for the first "set your password" email, so give it a full day.
       expiration: 24 * 60 * 60 * 1000,
-      generateEmailSubject: () => 'Set your password for the coding exam',
+      generateEmailSubject: (args) =>
+        args?.user?.passwordSet
+          ? 'Reset your password for the coding exam'
+          : 'Set your password for the coding exam',
       generateEmailHTML: (args) => {
-        const link = setPasswordLink(args?.token ?? '')
+        const isReset = Boolean(args?.user?.passwordSet)
+        const link = isReset ? resetPasswordLink(args?.token ?? '') : setPasswordLink(args?.token ?? '')
         return `
           <p>Hi,</p>
-          <p>Use the link below to set your password and open your applicant dashboard:</p>
+          <p>Use the link below to ${isReset ? 'reset your password' : 'set your password and open your applicant dashboard'}:</p>
           <p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>
           <p>This link expires in 24 hours. If you didn't request it, you can ignore this email.</p>
         `

@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { PasswordInput } from './PasswordInput'
 
-type Step = 'email' | 'password' | 'check-email'
+type Step = 'email' | 'continuing' | 'password' | 'check-email'
 
 const post = async (url: string, body: unknown) => {
   const res = await fetch(url, {
@@ -18,10 +18,17 @@ const post = async (url: string, body: unknown) => {
 }
 
 // Email first: new emails get an account and a set-password link; returning applicants
-// enter their password.
-export const LoginForm = ({ next = '/applicant/exam' }: { next?: string }) => {
-  const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState('')
+// enter their password. With an initialEmail (e.g. straight after applying at /careers),
+// that step runs automatically instead of asking them to type it again.
+export const LoginForm = ({
+  initialEmail,
+  next = '/applicant/exam',
+}: {
+  initialEmail?: string
+  next?: string
+}) => {
+  const [step, setStep] = useState<Step>(initialEmail ? 'continuing' : 'email')
+  const [email, setEmail] = useState(initialEmail ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -46,6 +53,12 @@ export const LoginForm = ({ next = '/applicant/exam' }: { next?: string }) => {
     setDevLink(data.devLink ?? null)
     setStep(data.next)
   })
+
+  // Runs the email step automatically when we already know the email.
+  useEffect(() => {
+    if (initialEmail) submitEmail()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const submitPassword = handle(async () => {
     await post('/applicant/auth/login', { email, password })
@@ -95,6 +108,17 @@ export const LoginForm = ({ next = '/applicant/exam' }: { next?: string }) => {
         <button className="linkButton" onClick={() => setStep('email')} type="button">
           ← Use a different email
         </button>
+      </div>
+    )
+  }
+
+  if (step === 'continuing' && !error) {
+    return (
+      <div className="authCard">
+        <h2>One moment…</h2>
+        <p className="muted">
+          Checking your account for <strong>{email}</strong>.
+        </p>
       </div>
     )
   }

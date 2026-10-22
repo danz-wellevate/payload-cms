@@ -1,14 +1,12 @@
-import { ArrowRight, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import React from 'react'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 export type ApplicationStatusProps = {
   jobTitle: string
   stage: string
-  schedulingHref?: string | null
   initialInterviewAt?: string | null
   technicalAssessmentAt?: string | null
   finalInterviewAt?: string | null
@@ -43,7 +41,6 @@ const progress = (stage: string): { step: number; ended?: boolean } => {
 export const ApplicationStatus = ({
   jobTitle,
   stage,
-  schedulingHref,
   initialInterviewAt,
   technicalAssessmentAt,
   finalInterviewAt,
@@ -53,7 +50,8 @@ export const ApplicationStatus = ({
 
   // Candidates only see neutral wording until a person has made a decision.
   const message: Record<string, React.ReactNode> = {
-    invited_to_schedule: 'Good news: we would like to meet you. Book your initial interview.',
+    invited_to_schedule:
+      "Good news: we would like to meet you. We'll email you with a time for your initial interview.",
     initial_scheduled: <>Your initial interview is on {initialInterviewAt}.</>,
     initial_failed: 'Thank you for interviewing with us. We will not be moving forward this time.',
     initial_passed:
@@ -119,14 +117,6 @@ export const ApplicationStatus = ({
           {message[stage] ??
             'We received your application and are reviewing your resume. We will email you about the next step.'}
         </p>
-
-        {stage === 'invited_to_schedule' && schedulingHref && (
-          <Button asChild className="self-start" size="lg">
-            <a href={schedulingHref}>
-              Book your initial interview <ArrowRight />
-            </a>
-          </Button>
-        )}
       </CardContent>
     </Card>
   )

@@ -288,26 +288,29 @@ export const Applications: CollectionConfig = {
         },
         {
           label: 'Initial interview',
-          description:
-            'The candidate books one of the open Interview slots from the emailed link. You can also set the time here yourself.',
+          description: 'Set the date and time for the initial interview.',
           fields: [
             {
-              type: 'row',
-              fields: [
-                {
-                  name: 'initialInterviewSlot',
-                  label: 'Booked slot',
-                  type: 'relationship',
-                  relationTo: 'interview-slots',
-                  admin: { readOnly: true },
-                },
-                {
-                  name: 'initialInterviewAt',
-                  label: 'Interview time',
-                  type: 'date',
-                  admin: dayAndTime,
-                },
-              ],
+              name: 'initialInterviewAt',
+              label: 'Interview time',
+              type: 'date',
+              admin: dayAndTime,
+            },
+            {
+              name: 'initialInterviewLink',
+              label: 'Meeting link',
+              type: 'text',
+              admin: {
+                description:
+                  'Paste a Teams (or Zoom/Meet) meeting link. Included in the email when you save.',
+                condition: (data) => Boolean(data?.initialInterviewAt),
+              },
+            },
+            {
+              name: 'initialInterviewSlot',
+              type: 'relationship',
+              relationTo: 'interview-slots',
+              admin: { hidden: true },
             },
             {
               name: 'initialResult',

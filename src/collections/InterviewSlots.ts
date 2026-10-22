@@ -14,6 +14,10 @@ export const InterviewSlots: CollectionConfig = {
     defaultColumns: ['startsAt', 'durationMinutes', 'interviewer', 'application'],
     description:
       'Initial interview times candidates can book. A slot is taken once a candidate books it.',
+    // Candidates no longer self-schedule (the admin sets Interview time directly on the
+    // Application instead), so this no longer needs its own place in the admin nav. The
+    // collection and the /schedule/[token] booking flow still work if ever needed again.
+    hidden: true,
   },
   defaultSort: 'startsAt',
   access: {
