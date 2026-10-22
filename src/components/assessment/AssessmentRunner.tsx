@@ -511,6 +511,14 @@ export const AssessmentRunner = ({
     const cameraReady = !requireWebcam || camera === 'on'
     const screenReady = !recordScreen || screen === 'on'
 
+    const checks: { label: string; done: boolean }[] = [
+      ...(requireWebcam ? [{ label: 'camera', done: camera === 'on' }] : []),
+      ...(recordScreen ? [{ label: 'screen sharing', done: screen === 'on' }] : []),
+      { label: 'consent', done: consent },
+    ]
+    const doneChecks = checks.filter((c) => c.done).length
+    const stillNeeded = checks.filter((c) => !c.done).map((c) => c.label)
+
     return (
       <section className="section">
         {screen === 'checking' && <div aria-hidden="true" className="screenMarker" />}
@@ -523,123 +531,152 @@ export const AssessmentRunner = ({
               : `You have ${formatMinutes(durationMinutes)} to complete this test. The timer starts when you click Start.`}
           </p>
 
-          <div className="assessmentIntro__grid">
-            <div>
-              <h2>Before you begin</h2>
-              <ul className="assessmentRules">
-                <li>The test runs in full screen. Leaving full screen is recorded.</li>
-                <li>
-                  Switching to another tab, window or app is recorded, along with how long you were
-                  away.
-                </li>
-                {requireWebcam && <li>Your webcam is recorded on video during the test.</li>}
-                {recordScreen && (
-                  <li>You share your entire screen, and it is recorded during the test.</li>
-                )}
-                <li>Text pasted into the editor is recorded.</li>
-                <li>Your code is saved automatically as you work.</li>
-                <li>
-                  Submit before the time runs out — the test is submitted automatically when it
-                  does.
-                </li>
-              </ul>
-            </div>
+          <div className="assessmentIntro__card">
+            <div className="assessmentIntro__body">
+              <div className="assessmentIntro__grid">
+                <div>
+                  <h2>Before you begin</h2>
+                  <ul className="assessmentRules">
+                    <li>The test runs in full screen. Leaving full screen is recorded.</li>
+                    <li>
+                      Switching to another tab, window or app is recorded, along with how long you
+                      were away.
+                    </li>
+                    {requireWebcam && <li>Your webcam is recorded on video during the test.</li>}
+                    {recordScreen && (
+                      <li>You share your entire screen, and it is recorded during the test.</li>
+                    )}
+                    <li>Text pasted into the editor is recorded.</li>
+                    <li>Your code is saved automatically as you work.</li>
+                    <li>
+                      Submit before the time runs out — the test is submitted automatically when it
+                      does.
+                    </li>
+                  </ul>
+                </div>
 
-            <div className="assessmentChecks">
-              {requireWebcam && (
-                <div className="assessmentCamCheck">
-                  <h2>Webcam check</h2>
-                  <div className="assessmentCamCheck__preview">
-                    {camera === 'on' ? (
-                      <video autoPlay muted playsInline ref={videoRef} />
-                    ) : (
-                      <span className="muted">
-                        {camera === 'denied'
-                          ? 'Camera access was blocked. Allow it in your browser settings, then try again.'
-                          : 'Camera is off'}
-                      </span>
+                <div>
+                  <div className="assessmentChecks__header">
+                    <h2>System check</h2>
+                    <span className="assessmentChecks__badge">
+                      {doneChecks} of {checks.length} complete
+                    </span>
+                  </div>
+                  <div className="assessmentChecks">
+                    {requireWebcam && (
+                      <div className="assessmentCamCheck">
+                        <div className="assessmentCamCheck__head">
+                          <h3>Webcam</h3>
+                          <span className="assessmentCamCheck__status">
+                            {camera === 'on' ? 'On' : 'Off'}
+                          </span>
+                        </div>
+                        <div className="checkPreview checkPreview--webcam">
+                          {camera === 'on' ? (
+                            <video autoPlay muted playsInline ref={videoRef} />
+                          ) : (
+                            <span className="muted">
+                              {camera === 'denied'
+                                ? 'Camera access was blocked. Allow it in your browser settings, then try again.'
+                                : 'Turn on your camera to check that you are visible.'}
+                            </span>
+                          )}
+                        </div>
+                        {camera !== 'on' && (
+                          <button
+                            className="button button--outline"
+                            disabled={camera === 'requesting'}
+                            onClick={enableCamera}
+                            type="button"
+                          >
+                            {camera === 'requesting' ? 'Waiting for permission…' : 'Turn on camera'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {recordScreen && (
+                      <div className="assessmentCamCheck">
+                        <div className="assessmentCamCheck__head">
+                          <h3>Screen sharing</h3>
+                          <span className="assessmentCamCheck__status">
+                            {screen === 'on' ? 'Shared' : 'Not shared'}
+                          </span>
+                        </div>
+                        <div className="checkPreview checkPreview--screen">
+                          {screen === 'on' ? (
+                            <video
+                              aria-label="Preview of your shared screen"
+                              autoPlay
+                              muted
+                              playsInline
+                              ref={screenPreviewRef}
+                            />
+                          ) : (
+                            <span className="muted">
+                              {screenShareMessages[screen] ??
+                                'Share your entire screen. A preview will appear here.'}
+                            </span>
+                          )}
+                        </div>
+                        {screen !== 'on' && screen !== 'unsupported' && (
+                          <button
+                            className="button button--outline"
+                            disabled={screen === 'requesting' || screen === 'checking'}
+                            onClick={shareScreen}
+                            type="button"
+                          >
+                            {screen === 'requesting'
+                              ? 'Waiting for your choice…'
+                              : screen === 'checking'
+                                ? 'Checking your screen…'
+                                : 'Share entire screen'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {camera !== 'on' && (
-                    <button
-                      className="button button--outline"
-                      disabled={camera === 'requesting'}
-                      onClick={enableCamera}
-                      type="button"
-                    >
-                      {camera === 'requesting' ? 'Waiting for permission…' : 'Turn on camera'}
-                    </button>
-                  )}
                 </div>
-              )}
+              </div>
 
-              {recordScreen && (
-                <div className="assessmentCamCheck">
-                  <h2>Screen sharing</h2>
-                  <p className={screen === 'on' ? 'assessmentScreenStatus is-on' : 'muted'}>
-                    {screen === 'on'
-                      ? '✓ Sharing your entire screen'
-                      : (screenShareMessages[screen] ??
-                        'Share your entire screen. Pick "Entire screen" in the window that opens.')}
-                  </p>
-                  {screen === 'on' && (
-                    <video
-                      aria-label="Preview of your shared screen"
-                      autoPlay
-                      className="assessmentScreenPreview"
-                      muted
-                      playsInline
-                      ref={screenPreviewRef}
-                    />
-                  )}
-                  {screen !== 'on' && screen !== 'unsupported' && (
-                    <button
-                      className="button button--outline"
-                      disabled={screen === 'requesting' || screen === 'checking'}
-                      onClick={shareScreen}
-                      type="button"
-                    >
-                      {screen === 'requesting'
-                        ? 'Waiting for your choice…'
-                        : screen === 'checking'
-                          ? 'Checking your screen…'
-                          : 'Share entire screen'}
-                    </button>
-                  )}
-                </div>
-              )}
+              <label className="assessmentConsent">
+                <input
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  I understand that my activity
+                  {requireWebcam && recordScreen
+                    ? ', webcam and screen'
+                    : requireWebcam
+                      ? ' and webcam'
+                      : recordScreen
+                        ? ' and screen'
+                        : ''}{' '}
+                  will be recorded during this test and shared with the hiring team.
+                </span>
+              </label>
+
+              {error && <p className="assessmentError">{error}</p>}
+            </div>
+
+            <div className="assessmentIntro__footer">
+              <p className="muted">
+                {stillNeeded.length
+                  ? `Still needed: ${stillNeeded.join(', ')}.`
+                  : 'Ready to start.'}
+              </p>
+              <button
+                className="button button--primary"
+                disabled={!consent || !cameraReady || !screenReady}
+                onClick={start}
+                type="button"
+              >
+                {inProgress ? 'Resume test' : 'Start test'}
+              </button>
             </div>
           </div>
-
-          <label className="assessmentConsent">
-            <input
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              type="checkbox"
-            />
-            <span>
-              I understand that my activity
-              {requireWebcam && recordScreen
-                ? ', webcam and screen'
-                : requireWebcam
-                  ? ' and webcam'
-                  : recordScreen
-                    ? ' and screen'
-                    : ''}{' '}
-              will be recorded during this test and shared with the hiring team.
-            </span>
-          </label>
-
-          {error && <p className="assessmentError">{error}</p>}
-
-          <button
-            className="button button--primary"
-            disabled={!consent || !cameraReady || !screenReady}
-            onClick={start}
-            type="button"
-          >
-            {inProgress ? 'Resume test' : 'Start test'}
-          </button>
         </div>
       </section>
     )

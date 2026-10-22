@@ -183,7 +183,7 @@ export interface Page {
   id: number;
   title: string;
   /**
-   * Use "home" for the homepage. Other pages are served at /<slug>.
+   * Generated from the title. Use "home" for the homepage; other pages are served at /<slug>.
    */
   slug: string;
   layout?:
@@ -547,7 +547,11 @@ export interface Assessment {
    * Shown on the applicant's dashboard.
    */
   result: 'pending' | 'passed' | 'failed';
+  /**
+   * Set by picking an existing applicant in the Candidate email field above.
+   */
   applicant?: (number | null) | Applicant;
+  applicantPassword?: string | null;
   /**
    * Use "Reset assessment" above to let the candidate retake the test.
    */
@@ -1194,6 +1198,7 @@ export interface AssessmentsSelect<T extends boolean = true> {
   feedback?: T;
   result?: T;
   applicant?: T;
+  applicantPassword?: T;
   status?: T;
   token?: T;
   startedAt?: T;
