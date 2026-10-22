@@ -8,7 +8,7 @@ import {
   normalizeEmail,
 } from '@/applicant/server'
 import { getPayloadClient } from '@/assessment/server'
-import { setPasswordLink } from '@/collections/Applicants'
+import { resetPasswordLink, setPasswordLink } from '@/collections/Applicants'
 import { showEmailLinksOnScreen } from '@/email/smtp'
 
 // Step 1 of applicant login. Creates the account on first visit (auto sign-up) and emails a
@@ -43,7 +43,8 @@ export async function POST(request: Request) {
       disableEmail: onScreen,
     })
     if (onScreen && token) {
-      return NextResponse.json({ next: 'check-email', devLink: setPasswordLink(token) })
+      const devLink = applicant.passwordSet ? resetPasswordLink(token) : setPasswordLink(token)
+      return NextResponse.json({ next: 'check-email', devLink })
     }
   } catch (error) {
     // Most likely the built-in rate limit (one email per 15 seconds per address).
