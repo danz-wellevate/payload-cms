@@ -10,7 +10,7 @@ export const ProctoringRecordings: CollectionConfig = {
   labels: { singular: 'Recording', plural: 'Recordings' },
   defaultSort: '-startedAt',
   admin: {
-    group: 'Assessments',
+    group: 'Settings',
     defaultColumns: ['filename', 'source', 'assessment', 'startedAt', 'durationSeconds', 'filesize'],
     description: `Recordings are deleted automatically after ${CAPTURE_RETENTION_DAYS} days.`,
     components: {

@@ -101,6 +101,12 @@ export const AssessmentRunner = ({
   const [resume, setResume] = useState<{ code: string | null; languageId: number | null }>()
   const [isFullscreen, setIsFullscreen] = useState(true)
   const [warning, setWarning] = useState<string | null>(null)
+  // Live counters shown next to the webcam preview, mirroring the server's tabSwitches /
+  // timeAwaySeconds / fullscreenExits fields (see events/route.ts) so what the candidate sees
+  // matches what ends up on the assessment.
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [timeAwaySeconds, setTimeAwaySeconds] = useState(0)
+  const [fullscreenExitCount, setFullscreenExitCount] = useState(0)
   const [confirmingSubmit, setConfirmingSubmit] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -390,10 +396,13 @@ export const AssessmentRunner = ({
       awayStart = null
       if (!leftTab && ms < MIN_FOCUS_LOSS_MS) return
 
+      const durationSeconds = Math.round(ms / 1000)
       record(leftTab ? 'left_tab' : 'lost_focus', {
         at: new Date(startedAt).toISOString(),
-        durationSeconds: Math.round(ms / 1000),
+        durationSeconds,
       })
+      setTabSwitchCount((n) => n + 1)
+      setTimeAwaySeconds((s) => s + durationSeconds)
       setWarning(
         leftTab
           ? 'You left the test tab. This has been recorded.'
@@ -406,7 +415,10 @@ export const AssessmentRunner = ({
     const onFullscreenChange = () => {
       const active = !!document.fullscreenElement
       setIsFullscreen(active)
-      if (!active) record('fullscreen_exit')
+      if (!active) {
+        record('fullscreen_exit')
+        setFullscreenExitCount((n) => n + 1)
+      }
     }
 
     const onPageHide = () => {
@@ -727,7 +739,27 @@ export const AssessmentRunner = ({
       </section>
 
       {requireWebcam && (
-        <video autoPlay className="assessmentCam" muted playsInline ref={videoRef} />
+        <div className="assessmentTracker">
+          <video autoPlay className="assessmentCam" muted playsInline ref={videoRef} />
+          <div className="assessmentTracker__status">
+            <span className="assessmentTracker__rec">
+              <span className="assessmentTracker__dot" aria-hidden="true" />
+              Recording
+            </span>
+            <ul className="assessmentTracker__stats">
+              <li>{isFullscreen ? 'Full screen' : 'Not full screen'}</li>
+              <li>
+                {tabSwitchCount} tab switch{tabSwitchCount === 1 ? '' : 'es'}
+              </li>
+              <li>{formatRemaining(timeAwaySeconds * 1000)} away</li>
+              {fullscreenExitCount > 0 && (
+                <li>
+                  {fullscreenExitCount} full-screen exit{fullscreenExitCount === 1 ? '' : 's'}
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
       )}
 
       {warning && (

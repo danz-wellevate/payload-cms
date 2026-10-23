@@ -1,6 +1,8 @@
 import type { CollectionConfig, Field, PayloadRequest } from 'payload'
 
 import { randomBytes } from 'crypto'
+import { rm } from 'fs/promises'
+import path from 'path'
 
 import type { Assessment } from '@/payload-types'
 
@@ -17,6 +19,9 @@ import {
 const MIN_PASSWORD_LENGTH = 8
 const normalizeEmail = (value: unknown) =>
   typeof value === 'string' ? value.trim().toLowerCase() : ''
+
+// Proctoring collections that store a file alongside the row (see beforeDelete below).
+const captureCollections = ['proctoring-recordings', 'proctoring-snapshots'] as const
 
 // Called from afterChange when the admin typed a password into "Candidate login password" and
 // saved. Creates (or claims a passwordless) applicant account and links it to the assessment, so
@@ -187,6 +192,54 @@ export const Assessments: CollectionConfig = {
           })
           await notifyHeadOfPlusAssessmentDone(req.payload, application, doc, flagged.totalDocs)
         }
+      },
+    ],
+    // Proctoring events/recordings/snapshots all require an assessment, so their foreign key
+    // can't be nulled out and Postgres refuses to delete a row anything still points at.
+    //
+    // These go through the database layer rather than payload.delete(): a nested bulk delete
+    // swallows its own per-document errors and rolls back the transaction the assessment is
+    // being deleted in, which made the whole delete fail with "transaction is aborted". That
+    // means the capture files have to be removed separately, in afterDelete.
+    beforeDelete: [
+      async ({ id, req }) => {
+        const pending = (req.context.captureFiles as string[] | undefined) ?? []
+
+        for (const collection of captureCollections) {
+          const staticDir = req.payload.collections[collection]?.config.upload?.staticDir
+          const { docs } = await req.payload.find({
+            collection,
+            where: { assessment: { equals: id } },
+            depth: 0,
+            limit: 0,
+            pagination: false,
+            req,
+          })
+          for (const doc of docs) {
+            if (staticDir && doc.filename) pending.push(path.resolve(staticDir, doc.filename))
+          }
+        }
+        req.context.captureFiles = pending
+
+        for (const collection of ['proctoring-events', ...captureCollections] as const) {
+          await req.payload.db.deleteMany({
+            collection,
+            where: { assessment: { equals: id } },
+            req,
+          })
+        }
+      },
+    ],
+    afterDelete: [
+      async ({ req }) => {
+        const files = (req.context.captureFiles as string[] | undefined)?.splice(0) ?? []
+        await Promise.all(
+          files.map((file) =>
+            rm(file, { force: true }).catch((err) =>
+              req.payload.logger.warn({ err, msg: `Could not delete capture file ${file}` }),
+            ),
+          ),
+        )
       },
     ],
   },
