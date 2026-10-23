@@ -9,7 +9,7 @@ export const ProctoringSnapshots: CollectionConfig = {
   labels: { singular: 'Webcam Snapshot', plural: 'Webcam Snapshots' },
   defaultSort: '-takenAt',
   admin: {
-    group: 'Assessments',
+    group: 'Settings',
     defaultColumns: ['filename', 'assessment', 'takenAt'],
     description: `Older webcam snapshots. Deleted automatically after ${CAPTURE_RETENTION_DAYS} days.`,
     components: {

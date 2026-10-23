@@ -46,6 +46,24 @@ export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =
     ]),
   )
 
+// An admin set up a login directly on the assessment ("Candidate login password") instead of
+// the candidate signing up themselves: emails them the password so they can sign in right away.
+export const sendApplicantLoginCreated = (payload: Payload, assessment: Assessment, password: string) => {
+  const link = assessmentInviteLink(assessment.token ?? '')
+  return send(
+    payload,
+    assessment.candidateEmail,
+    'Your login for the coding assessment',
+    layout([
+      `Hi ${escapeHtml(assessment.candidateName?.trim() || 'there')},`,
+      'An account was created for you so you can go straight to your coding assessment.',
+      `Email: <strong>${escapeHtml(assessment.candidateEmail)}</strong><br/>Password: <strong>${escapeHtml(password)}</strong>`,
+      button(link, 'Sign in and start the assessment'),
+      `Or use this link: <a href="${escapeHtml(link)}">${escapeHtml(link)}</a>`,
+    ]),
+  )
+}
+
 // Email failures are logged but never block saving the application.
 const send = async (payload: Payload, to: string | string[], subject: string, html: string) => {
   const recipients = Array.isArray(to) ? to : [to]

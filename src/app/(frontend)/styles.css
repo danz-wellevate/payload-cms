@@ -1054,25 +1054,64 @@ img {
 }
 
 /* Assessment */
-.assessmentMessage,
-.assessmentIntro {
+.assessmentMessage {
   max-width: 880px;
 }
 
 .assessmentIntro h2 {
+  margin: 0;
   font-size: 1.25rem;
+}
+
+.assessmentIntro__card {
+  margin-top: 40px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.assessmentIntro__body {
+  display: grid;
+  gap: 28px;
+  padding: 32px;
+}
+
+.assessmentIntro__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 32px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.assessmentIntro__footer p {
+  margin: 0;
 }
 
 .assessmentIntro__grid {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
   gap: 32px;
-  margin: 40px 0 32px;
 }
 
 @media (max-width: 768px) {
   .assessmentIntro__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.assessmentIntro__grid > div:last-child {
+  padding-left: 32px;
+  border-left: 1px solid var(--color-border);
+}
+
+@media (max-width: 768px) {
+  .assessmentIntro__grid > div:last-child {
+    padding-left: 0;
+    border-left: none;
   }
 }
 
@@ -1089,40 +1128,100 @@ img {
   color: var(--color-primary);
 }
 
+.assessmentChecks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.assessmentChecks__badge {
+  padding: 4px 10px;
+  background: var(--color-surface);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.assessmentChecks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .assessmentChecks {
+    grid-template-columns: 1fr;
+  }
+}
+
 .assessmentCamCheck {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 10px;
 }
 
-.assessmentCamCheck h2 {
+.assessmentCamCheck__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.assessmentCamCheck__head h3 {
   margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
-.assessmentCamCheck__preview {
+.assessmentCamCheck__status {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.checkPreview {
   display: grid;
   place-items: center;
-  aspect-ratio: 4 / 3;
   overflow: hidden;
   padding: 16px;
-  background: var(--color-surface);
   border-radius: var(--radius);
   text-align: center;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
-.assessmentCamCheck__preview video {
+.checkPreview--webcam {
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface);
+}
+
+.checkPreview--webcam video {
   width: calc(100% + 32px);
   height: calc(100% + 32px);
   object-fit: cover;
   transform: scaleX(-1);
 }
 
+.checkPreview--screen {
+  aspect-ratio: 4 / 3;
+  background: #1f2937;
+  color: #9ca3af;
+}
+
+.checkPreview--screen video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .assessmentConsent {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 24px;
+  margin: 0;
+  padding: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
   cursor: pointer;
 }
 
@@ -1186,11 +1285,17 @@ img {
   max-height: calc(100vh - 112px);
 }
 
-.assessmentCam {
+.assessmentTracker {
   position: fixed;
   left: 16px;
   bottom: 16px;
   z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.assessmentCam {
   width: 140px;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -1199,6 +1304,56 @@ img {
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
   transform: scaleX(-1);
+}
+
+.assessmentTracker__status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgb(17 24 39 / 0.85);
+  backdrop-filter: blur(4px);
+  border-radius: var(--radius);
+  color: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+}
+
+.assessmentTracker__rec {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.assessmentTracker__dot {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: assessmentTrackerPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes assessmentTrackerPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.assessmentTracker__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: rgb(255 255 255 / 0.75);
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .assessmentWarning {
@@ -1340,17 +1495,6 @@ img {
   color: var(--color-heading);
 }
 
-.assessmentChecks {
-  display: grid;
-  align-content: start;
-  gap: 28px;
-}
-
-.assessmentScreenStatus.is-on {
-  color: #15803d;
-  font-weight: 600;
-}
-
 /* Shown for a moment while checking which screen was shared (see assessment/screenCheck.ts). */
 .screenMarker {
   position: fixed;
@@ -1363,12 +1507,4 @@ img {
     linear-gradient(#00ff00, #00ff00) center / 40px 40px no-repeat,
     #ff00ff;
   pointer-events: none;
-}
-
-.assessmentScreenPreview {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  border-radius: var(--radius);
-  object-fit: contain;
 }

@@ -12,6 +12,10 @@ export const ProctoringEvents: CollectionConfig = {
     group: 'Assessments',
     useAsTitle: 'type',
     defaultColumns: ['type', 'assessment', 'at', 'durationSeconds', 'characters'],
+    // This raw log is already shown — synced with the recordings and with timestamps — in each
+    // Assessment's Proctoring tab and Review page, so it doesn't need its own place in the admin
+    // nav. The collection still works via the API if ever needed directly.
+    hidden: true,
   },
   access: {
     read: isAdmin,
