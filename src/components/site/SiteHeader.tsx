@@ -2,6 +2,7 @@ import Link from 'next/link'
 import React from 'react'
 
 import { getSiteData } from '@/theme/getSiteData'
+import { withBase } from '@/lib/basePath'
 
 export async function SiteHeader() {
   const { settings, header } = await getSiteData()
@@ -13,7 +14,7 @@ export async function SiteHeader() {
         <Link className="siteHeader__brand" href="/">
           {logo?.url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt={logo.alt || settings.siteName} height={36} src={logo.url} />
+            <img alt={logo.alt || settings.siteName} height={36} src={withBase(logo.url)} />
           ) : (
             <span>{settings.siteName || 'Your Brand'}</span>
           )}

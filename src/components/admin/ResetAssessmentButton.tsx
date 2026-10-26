@@ -10,6 +10,7 @@ import {
   useModal,
 } from '@payloadcms/ui'
 import React from 'react'
+import { withBase } from '@/lib/basePath'
 
 // Sidebar button that wipes the current attempt so the candidate can take the exam again.
 export const ResetAssessmentButton = () => {
@@ -28,7 +29,7 @@ export const ResetAssessmentButton = () => {
   const modalSlug = `reset-assessment-${id}`
 
   const reset = async () => {
-    const res = await fetch(`${api}/assessments/${id}/reset`, {
+    const res = await fetch(`${withBase(api)}/assessments/${id}/reset`, {
       method: 'POST',
       credentials: 'include',
     })

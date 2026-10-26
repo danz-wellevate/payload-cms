@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import '@/styles/shadcn.css'
 
 import { dayKey, dayRange, formatDay, formatTime } from '../captureDates'
+import { withBase } from '@/lib/basePath'
 
 type Clip = { id: number; url: string; start: number; end: number }
 
@@ -120,7 +121,7 @@ const SyncedVideo = ({
     const want = Math.max(0, (t - clip.start) / 1000)
     if (video.dataset.clip !== String(clip.id)) {
       video.dataset.clip = String(clip.id)
-      video.src = clip.url
+      video.src = withBase(clip.url)
       video.currentTime = want
     } else if (Math.abs(video.currentTime - want) > MAX_DRIFT_S) {
       video.currentTime = want
@@ -221,7 +222,7 @@ export const ProctoringPlayer = ({
         limit: '2000',
         depth: '0',
       })
-      const res = await fetch(`${api}/${collection}?${params}`, { credentials: 'include' })
+      const res = await fetch(`${withBase(api)}/${collection}?${params}`, { credentials: 'include' })
       return ((await res.json().catch(() => ({}))).docs ?? []) as never[]
     }
     const [recs, evts] = await Promise.all([
@@ -356,7 +357,7 @@ export const ProctoringPlayer = ({
   const confirmDelete = async () => {
     if (!deleteDay) return
     const { from, to } = dayRange(deleteDay)
-    const res = await fetch(`${api}/proctoring-recordings/delete-range`, {
+    const res = await fetch(`${withBase(api)}/proctoring-recordings/delete-range`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

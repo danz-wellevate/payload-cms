@@ -4,6 +4,7 @@ import React from 'react'
 import { getSiteData } from '@/theme/getSiteData'
 
 import { CMSLink } from './CMSLink'
+import { withBase } from '@/lib/basePath'
 
 export async function SiteFooter() {
   const { settings, header } = await getSiteData()
@@ -16,7 +17,7 @@ export async function SiteFooter() {
         <Link className="siteFooter__brand" href="/">
           {logo?.url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt={logo.alt || settings.siteName} height={28} src={logo.url} />
+            <img alt={logo.alt || settings.siteName} height={28} src={withBase(logo.url)} />
           ) : (
             <span>{settings.siteName || 'Your Brand'}</span>
           )}

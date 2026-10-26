@@ -4,6 +4,7 @@ import type { ProctoringSnapshot } from '@/payload-types'
 
 import { FieldLabel, useDocumentInfo } from '@payloadcms/ui'
 import React, { useEffect, useState } from 'react'
+import { withBase } from '@/lib/basePath'
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, {
@@ -25,7 +26,7 @@ export const SnapshotGallery = () => {
       limit: '500',
       depth: '0',
     })
-    fetch(`/api/proctoring-snapshots?${params}`, { credentials: 'include' })
+    fetch(withBase(`/api/proctoring-snapshots?${params}`), { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => setSnapshots(data.docs ?? []))
       .catch(() => setSnapshots([]))
@@ -46,7 +47,7 @@ export const SnapshotGallery = () => {
       >
         {snapshots.map((snapshot) => (
           <a
-            href={snapshot.url ?? undefined}
+            href={snapshot.url ? withBase(snapshot.url) : undefined}
             key={snapshot.id}
             rel="noreferrer"
             style={{ color: 'inherit', textDecoration: 'none' }}
@@ -55,7 +56,7 @@ export const SnapshotGallery = () => {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt={`Snapshot at ${formatTime(snapshot.takenAt)}`}
-              src={snapshot.url ?? ''}
+              src={withBase(snapshot.url ?? '')}
               style={{
                 width: '100%',
                 aspectRatio: '4 / 3',

@@ -6,6 +6,7 @@ import React, { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { withBase } from '@/lib/basePath'
 
 const ACCEPT =
   '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -43,7 +44,7 @@ export const ApplyForm = ({ slug }: { slug: string }) => {
         file instanceof File && file.size > 0
           ? { data: await fileToBase64(file), name: file.name, type: file.type }
           : null
-      const res = await fetch(`/careers/${encodeURIComponent(slug)}/apply`, {
+      const res = await fetch(withBase(`/careers/${encodeURIComponent(slug)}/apply`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, resume }),

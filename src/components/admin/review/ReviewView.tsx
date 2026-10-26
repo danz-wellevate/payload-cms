@@ -20,6 +20,7 @@ import {
 import '@/styles/shadcn.css'
 
 import { ProctoringPlayer } from './ProctoringPlayer'
+import { withBase } from '@/lib/basePath'
 
 const statusLabels: Record<Assessment['status'], string> = {
   invited: 'Invited',
@@ -46,7 +47,7 @@ export const ReviewView = ({ doc, initPageResult }: DocumentViewServerProps) => 
     return <p className="p-8">This review isn&apos;t available.</p>
   }
 
-  const editHref = `${adminRoute}/collections/assessments/${assessment.id}`
+  const editHref = withBase(`${adminRoute}/collections/assessments/${assessment.id}`)
   const run = assessment.finalRun
 
   return (

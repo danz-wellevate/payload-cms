@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import '@/styles/shadcn.css'
 
 import { dayKey, dayRange, formatDay } from './captureDates'
+import { withBase } from '@/lib/basePath'
 
 type Counts = { recordings: number; snapshots: number }
 
@@ -38,7 +39,7 @@ export const DeleteCapturesByDate = () => {
         limit: '1',
         depth: '0',
       })
-      const res = await fetch(`${api}/${collection}?${params}`, { credentials: 'include' })
+      const res = await fetch(`${withBase(api)}/${collection}?${params}`, { credentials: 'include' })
       return ((await res.json().catch(() => ({}))).totalDocs as number) ?? 0
     }
     let cancelled = false
@@ -56,7 +57,7 @@ export const DeleteCapturesByDate = () => {
 
   const deleteDay = async () => {
     const { from, to } = dayRange(date)
-    const res = await fetch(`${api}/proctoring-recordings/delete-range`, {
+    const res = await fetch(`${withBase(api)}/proctoring-recordings/delete-range`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

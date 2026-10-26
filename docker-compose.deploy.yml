@@ -1,0 +1,52 @@
+# Build & push from your PC (Docker Desktop):
+#   docker compose -f docker-compose.deploy.yml build app
+#   docker login
+#   docker compose -f docker-compose.deploy.yml push app
+services:
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_BASE_PATH: /plus_tech_exam
+    image: wellevate/plus-tech-exam:latest
+    container_name: plus-tech-exam
+    ports:
+      - "127.0.0.1:5435:3000"
+    env_file:
+      - ./.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    volumes:
+      - plus-tech-exam-media:/app/media
+      - plus-tech-exam-resumes:/app/resumes
+      - plus-tech-exam-snapshots:/app/proctoring-snapshots
+      - plus-tech-exam-recordings:/app/proctoring-recordings
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: plus-tech-exam-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - plus-tech-exam-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  plus-tech-exam-db-data:
+  plus-tech-exam-media:
+  plus-tech-exam-resumes:
+  plus-tech-exam-snapshots:
+  plus-tech-exam-recordings:

@@ -61,3 +61,5 @@ node_modules/
 /resumes
 
 backups/
+
+!.env.production.example

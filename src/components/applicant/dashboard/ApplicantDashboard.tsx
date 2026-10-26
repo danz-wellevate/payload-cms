@@ -32,6 +32,7 @@ import {
 
 import { LocalTime } from '../LocalTime'
 import { ApplicationStatus, type ApplicationStatusProps } from './ApplicationStatus'
+import { withBase } from '@/lib/basePath'
 
 // scheduled: the hiring workflow set a start time that hasn't come yet.
 // not_scheduled: the applicant applied for a job but has no assessment yet.
@@ -150,7 +151,7 @@ export const ApplicantDashboard = ({
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Hi {name}</h1>
           <p className="text-sm text-muted-foreground">Signed in as {email}</p>
         </div>
-        <form action="/applicant/auth/logout" method="post">
+        <form action={withBase('/applicant/auth/logout')} method="post">
           <Button type="submit" variant="outline">
             <LogOut /> Log out
           </Button>
@@ -244,7 +245,7 @@ export const ApplicantDashboard = ({
 
           {canStart && (
             <CardFooter className="border-t">
-              <form action="/applicant/exam" method="post">
+              <form action={withBase('/applicant/exam')} method="post">
                 <Button size="lg" type="submit">
                   {state === 'in_progress'
                     ? 'Resume exam'
