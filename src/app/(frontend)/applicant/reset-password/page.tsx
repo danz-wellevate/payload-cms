@@ -3,16 +3,18 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import React from 'react'
 
+import { safeNextPath } from '@/applicant/server'
 import { ResetPasswordForm } from '@/components/applicant/ResetPasswordForm'
 
 export const metadata: Metadata = { title: 'Reset your password', robots: { index: false } }
 
-type Args = { searchParams: Promise<{ token?: string }> }
+type Args = { searchParams: Promise<{ token?: string; next?: string }> }
 
 // Opened from the "forgot your password" email. Separate from /applicant/set-password (first
 // sign-up) so returning applicants aren't asked for their name again.
 export default async function ResetPasswordPage({ searchParams }: Args) {
-  const { token } = await searchParams
+  const { token, next } = await searchParams
+  const safeNext = safeNextPath(next) ?? '/applicant'
 
   return (
     <section className="section">
@@ -22,7 +24,7 @@ export default async function ResetPasswordPage({ searchParams }: Args) {
         {token ? (
           <>
             <p className="lead">Choose a new password to sign back in to your dashboard.</p>
-            <ResetPasswordForm token={token} />
+            <ResetPasswordForm next={safeNext} token={token} />
           </>
         ) : (
           <p className="lead">

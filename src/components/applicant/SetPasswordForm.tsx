@@ -7,7 +7,7 @@ import { withBase } from '@/lib/basePath'
 
 const MIN_PASSWORD_LENGTH = 8
 
-export const SetPasswordForm = ({ token }: { token: string }) => {
+export const SetPasswordForm = ({ next = '/applicant', token }: { next?: string; token: string }) => {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -31,7 +31,7 @@ export const SetPasswordForm = ({ token }: { token: string }) => {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.')
-      window.location.assign(withBase('/applicant'))
+      window.location.assign(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
       setBusy(false)

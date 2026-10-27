@@ -9,6 +9,7 @@ export const proctoringEventTypes = [
   { value: 'paste', label: 'Pasted into the editor' },
   { value: 'camera_off', label: 'Webcam stopped' },
   { value: 'screen_share_stopped', label: 'Stopped sharing screen' },
+  { value: 'wrong_screen', label: "Shared screen didn't show their work" },
   { value: 'multiple_monitors', label: 'Multiple monitors detected' },
   { value: 'code_run', label: 'Ran code' },
   { value: 'time_expired', label: 'Time ran out' },
@@ -18,6 +19,8 @@ export const proctoringEventTypes = [
 export type ProctoringEventType = (typeof proctoringEventTypes)[number]['value']
 
 // Events the browser is allowed to report; the rest are recorded by the server.
+// 'fullscreen_exit' stays in the list so older assessments still validate, but the test no
+// longer uses full screen so the browser never sends it.
 export const clientEventTypes: ProctoringEventType[] = [
   'left_tab',
   'lost_focus',
@@ -25,6 +28,7 @@ export const clientEventTypes: ProctoringEventType[] = [
   'paste',
   'camera_off',
   'screen_share_stopped',
+  'wrong_screen',
   'multiple_monitors',
   'code_run',
 ]
@@ -41,10 +45,10 @@ export type ClientEvent = {
 export const flaggedEventTypes: ProctoringEventType[] = [
   'left_tab',
   'lost_focus',
-  'fullscreen_exit',
   'paste',
   'camera_off',
   'screen_share_stopped',
+  'wrong_screen',
   'multiple_monitors',
 ]
 

@@ -146,9 +146,11 @@ export const Assessments: CollectionConfig = {
     // monitoring report when the candidate finishes.
     afterChange: [
       // Created directly here (not by the hiring pipeline, which sets this context flag
-      // because it sends its own "technical assessment scheduled" email instead).
+      // because it sends its own "technical assessment scheduled" email instead). Skipped when
+      // a password was typed into "Candidate login password" too — that case gets only the
+      // "your login was created" email below (which includes the same link).
       async ({ doc, operation, req, context }) => {
-        if (operation === 'create' && !context?.skipInviteEmail) {
+        if (operation === 'create' && !context?.skipInviteEmail && !context?.applicantPassword) {
           await sendAssessmentInvite(req.payload, doc)
         }
       },

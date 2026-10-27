@@ -7,7 +7,7 @@ import { generateExpiredPayloadCookie, generatePayloadCookie } from 'payload/sha
 import type { Applicant } from '@/payload-types'
 
 import { getPayloadClient } from '@/assessment/server'
-import { DEFAULT_TIME_LIMIT_MINUTES } from '@/collections/Applicants'
+import { DEFAULT_TIME_LIMIT_MINUTES, setPasswordLink } from '@/collections/Applicants'
 
 export const normalizeEmail = (value: unknown) =>
   typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -76,8 +76,38 @@ export const safeNextPath = (value: unknown) =>
     ? value
     : undefined
 
-export const loginUrl = (next?: string) =>
-  next ? `/applicant/login?next=${encodeURIComponent(next)}` : '/applicant/login'
+// `email`, when known (e.g. a tokenized invite link already identifies the candidate), skips
+// the "enter your email" step on the login page and goes straight to the password field.
+export const loginUrl = (next?: string, email?: string) => {
+  const params = new URLSearchParams()
+  if (next) params.set('next', next)
+  if (email) params.set('email', email)
+  const qs = params.toString()
+  return qs ? `/applicant/login?${qs}` : '/applicant/login'
+}
+
+// Registration for a candidate an invite link already identifies: straight to the one-time
+// "Set your password" form, never the login page, so the email the link already proves is
+// never shown or asked for. Resetting a forgotten password is a separate flow, reached from
+// the login page — an invited candidate is registering, not recovering an account.
+export const setPasswordUrl = async (payload: Payload, email: string, next?: string) => {
+  await findOrCreateApplicant(payload, email)
+  try {
+    const token = await payload.forgotPassword({
+      collection: 'applicants',
+      data: { email },
+      disableEmail: true,
+    })
+    if (token) {
+      const link = setPasswordLink(token)
+      return next ? `${link}&next=${encodeURIComponent(next)}` : link
+    }
+  } catch (err) {
+    payload.logger.warn({ err, msg: `Could not create a set-password link for ${email}` })
+  }
+  // Fallback if token generation failed for some reason.
+  return loginUrl(next, email)
+}
 
 // The applicant's exam: one linked to their account, or an admin-created invite sent to their
 // email that isn't linked yet (it gets linked here).

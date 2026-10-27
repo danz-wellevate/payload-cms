@@ -31,6 +31,9 @@ services:
       # Forces file-watcher polling so edits on the Windows host trigger HMR
       # inside the Linux container (inotify events don't cross the Docker bridge).
       WATCHPACK_POLLING: "true"
+      # .env is shared with the droplet (see its own comment), so it holds the production
+      # domain. Override it here so links emailed/generated locally point at localhost instead.
+      NEXT_PUBLIC_SERVER_URL: http://localhost:3000
     depends_on:
       db:
         condition: service_healthy

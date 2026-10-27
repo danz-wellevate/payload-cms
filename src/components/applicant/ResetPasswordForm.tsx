@@ -9,7 +9,7 @@ const MIN_PASSWORD_LENGTH = 8
 
 // Opened from a "forgot password" email. Unlike SetPasswordForm (first-time sign-up), the
 // applicant already has a name on file, so this only asks for the new password.
-export const ResetPasswordForm = ({ token }: { token: string }) => {
+export const ResetPasswordForm = ({ next = '/applicant', token }: { next?: string; token: string }) => {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
