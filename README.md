@@ -135,6 +135,23 @@ docker build -t payload-cms .
 docker run -p 3000:3000 --env-file .env payload-cms
 ```
 
+### Troubleshooting
+
+**App can't connect to Postgres** — logs show `cannot connect to Postgres: getaddrinfo ENOTFOUND db` or `EAI_AGAIN db`, and the site errors out.
+
+This means the `app` container can't resolve the `db` container's hostname on the Docker network. It's not a code or `.env` bug — it happens when the `db` container gets orphaned from the Docker network, which can occur after Docker Desktop or WSL restarts/updates. Fix it by recreating the stack:
+
+```bash
+# Usually enough — tears down and rebuilds the network cleanly
+docker-compose down
+docker-compose up -d
+
+# If it's still happening, force both containers to rejoin the network
+docker-compose up -d --force-recreate db app
+```
+
+Your data is untouched either way — it lives in the `db-data` volume, not in the containers themselves. Only use `docker-compose down -v` (which wipes the volume) if you intend to start from an empty database.
+
 ---
 
 ## Useful scripts
