@@ -67,6 +67,9 @@ const TIMEOUT_REDIRECT_MS = 8_000
 const FINAL_CLIP_WAIT_MS = 20_000
 // Short focus blips (e.g. OS notifications) are ignored; leaving the tab is always recorded.
 const MIN_FOCUS_LOSS_MS = 1_000
+// How often to re-check that the shared screen still shows the exam (e.g. the candidate moved
+// the window to a second monitor that isn't the one they shared).
+const SCREEN_VERIFY_INTERVAL_MS = 45_000
 
 const formatRemaining = (ms: number) => {
   const total = Math.max(0, Math.ceil(ms / 1000))
@@ -96,6 +99,10 @@ export const AssessmentRunner = ({
   const [consent, setConsent] = useState(false)
   const [camera, setCamera] = useState<Camera>('off')
   const [screen, setScreen] = useState<ScreenShare>('off')
+  // True while a periodic re-check (during the test) is sampling the shared screen for the
+  // marker — same mechanism as the initial share, just run again later to catch the candidate
+  // moving the exam to a monitor that isn't the one they shared.
+  const [screenVerifying, setScreenVerifying] = useState(false)
   const [deadline, setDeadline] = useState<number | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [resume, setResume] = useState<{ code: string | null; languageId: number | null }>()
@@ -171,8 +178,10 @@ export const AssessmentRunner = ({
       })
       stream.getVideoTracks()[0]?.addEventListener('ended', () => {
         // The camera stopped on its own (unplugged, taken by another app, revoked by the OS).
+        // Webcam recording is optional, so this doesn't block the test — just logged.
         if (phaseRef.current === 'test') {
           record('camera_off')
+          setWarning('Your webcam turned off. This has been recorded.')
           const recorder = recorderRef.current
           recorderRef.current = null
           void recorder?.stop()
@@ -228,9 +237,11 @@ export const AssessmentRunner = ({
       }
 
       track?.addEventListener('ended', () => {
-        // The candidate clicked "Stop sharing" (or the screen went away).
+        // The candidate clicked "Stop sharing" (or the screen went away). Screen recording is
+        // optional, so this doesn't block the test — just logged.
         if (phaseRef.current === 'test') {
           record('screen_share_stopped')
+          setWarning('Screen sharing stopped. This has been recorded.')
           const recorder = screenRecorderRef.current
           screenRecorderRef.current = null
           void recorder?.stop()
@@ -302,6 +313,43 @@ export const AssessmentRunner = ({
       )
     }
   }, [phase, camera, screen, uploadClip])
+
+  // Re-checks (every SCREEN_VERIFY_INTERVAL_MS) that the shared screen still shows the exam —
+  // the same marker check run when sharing starts, repeated periodically so a candidate who
+  // moves the window to an unshared monitor is caught instead of silently recording a blank
+  // screen. getDisplayMedia can't be retargeted to another source without a fresh user gesture,
+  // so the fix is to stop the stale share and prompt them to share the right screen again (the
+  // "share" link already shown whenever `screen` isn't 'on').
+  useEffect(() => {
+    if (phase !== 'test' || !recordScreen || screen !== 'on') return
+    let cancelled = false
+
+    const interval = setInterval(async () => {
+      const stream = screenStreamRef.current
+      if (cancelled || !stream) return
+      setScreenVerifying(true)
+      const result = await checkSharedScreen(stream)
+      setScreenVerifying(false)
+      if (cancelled || phaseRef.current !== 'test' || screenStreamRef.current !== stream) return
+
+      if (result === 'wrong-screen') {
+        record('wrong_screen')
+        setWarning(
+          "The screen you're sharing doesn't show this window anymore. Share the correct screen to keep it recorded.",
+        )
+        const recorder = screenRecorderRef.current
+        screenRecorderRef.current = null
+        void recorder?.stop()
+        stopScreenShare()
+        setScreen('off')
+      }
+    }, SCREEN_VERIFY_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [phase, recordScreen, screen, record])
 
   const start = async () => {
     setError(null)
@@ -520,17 +568,6 @@ export const AssessmentRunner = ({
   }
 
   if (phase === 'intro') {
-    const cameraReady = !requireWebcam || camera === 'on'
-    const screenReady = !recordScreen || screen === 'on'
-
-    const checks: { label: string; done: boolean }[] = [
-      ...(requireWebcam ? [{ label: 'camera', done: camera === 'on' }] : []),
-      ...(recordScreen ? [{ label: 'screen sharing', done: screen === 'on' }] : []),
-      { label: 'consent', done: consent },
-    ]
-    const doneChecks = checks.filter((c) => c.done).length
-    const stillNeeded = checks.filter((c) => !c.done).map((c) => c.label)
-
     return (
       <section className="section">
         {screen === 'checking' && <div aria-hidden="true" className="screenMarker" />}
@@ -554,9 +591,18 @@ export const AssessmentRunner = ({
                       Switching to another tab, window or app is recorded, along with how long you
                       were away.
                     </li>
-                    {requireWebcam && <li>Your webcam is recorded on video during the test.</li>}
+                    {requireWebcam && (
+                      <li>
+                        You may turn on your webcam below — if you do, it&apos;s recorded during
+                        the test.
+                      </li>
+                    )}
                     {recordScreen && (
-                      <li>You share your entire screen, and it is recorded during the test.</li>
+                      <li>
+                        You may share your screen below — if you do, it&apos;s recorded during the
+                        test. If your interviewer is already watching over a call (e.g. Teams),
+                        you don&apos;t need to share here too.
+                      </li>
                     )}
                     <li>Text pasted into the editor is recorded.</li>
                     <li>Your code is saved automatically as you work.</li>
@@ -570,9 +616,7 @@ export const AssessmentRunner = ({
                 <div>
                   <div className="assessmentChecks__header">
                     <h2>System check</h2>
-                    <span className="assessmentChecks__badge">
-                      {doneChecks} of {checks.length} complete
-                    </span>
+                    <span className="assessmentChecks__badge">Optional</span>
                   </div>
                   <div className="assessmentChecks">
                     {requireWebcam && (
@@ -659,13 +703,9 @@ export const AssessmentRunner = ({
                 />
                 <span>
                   I understand that my activity
-                  {requireWebcam && recordScreen
-                    ? ', webcam and screen'
-                    : requireWebcam
-                      ? ' and webcam'
-                      : recordScreen
-                        ? ' and screen'
-                        : ''}{' '}
+                  {requireWebcam || recordScreen
+                    ? ', and my webcam or screen if I turn them on,'
+                    : ''}{' '}
                   will be recorded during this test and shared with the hiring team.
                 </span>
               </label>
@@ -675,13 +715,11 @@ export const AssessmentRunner = ({
 
             <div className="assessmentIntro__footer">
               <p className="muted">
-                {stillNeeded.length
-                  ? `Still needed: ${stillNeeded.join(', ')}.`
-                  : 'Ready to start.'}
+                {consent ? 'Ready to start.' : 'Please confirm the checkbox above to continue.'}
               </p>
               <button
                 className="button button--primary"
-                disabled={!consent || !cameraReady || !screenReady}
+                disabled={!consent}
                 onClick={start}
                 type="button"
               >
@@ -696,7 +734,9 @@ export const AssessmentRunner = ({
 
   return (
     <div className="assessment">
-      {screen === 'checking' && <div aria-hidden="true" className="screenMarker" />}
+      {(screen === 'checking' || screenVerifying) && (
+        <div aria-hidden="true" className="screenMarker" />
+      )}
       <div className="assessmentBar">
         <div className="container assessmentBar__inner">
           <strong>{candidateName}</strong>
@@ -738,14 +778,28 @@ export const AssessmentRunner = ({
         </div>
       </section>
 
-      {requireWebcam && (
+      {(requireWebcam || recordScreen) && (
         <div className="assessmentTracker">
-          <video autoPlay className="assessmentCam" muted playsInline ref={videoRef} />
+          {requireWebcam &&
+            (camera === 'on' ? (
+              <video autoPlay className="assessmentCam" muted playsInline ref={videoRef} />
+            ) : (
+              <button
+                className="button button--outline"
+                disabled={camera === 'requesting'}
+                onClick={enableCamera}
+                type="button"
+              >
+                {camera === 'requesting' ? 'Waiting for permission…' : 'Turn on webcam'}
+              </button>
+            ))}
           <div className="assessmentTracker__status">
-            <span className="assessmentTracker__rec">
-              <span className="assessmentTracker__dot" aria-hidden="true" />
-              Recording
-            </span>
+            {requireWebcam && (
+              <span className="assessmentTracker__rec">
+                {camera === 'on' && <span className="assessmentTracker__dot" aria-hidden="true" />}
+                {camera === 'on' ? 'Recording' : 'Webcam off'}
+              </span>
+            )}
             <ul className="assessmentTracker__stats">
               <li>{isFullscreen ? 'Full screen' : 'Not full screen'}</li>
               <li>
@@ -755,6 +809,25 @@ export const AssessmentRunner = ({
               {fullscreenExitCount > 0 && (
                 <li>
                   {fullscreenExitCount} full-screen exit{fullscreenExitCount === 1 ? '' : 's'}
+                </li>
+              )}
+              {recordScreen && (
+                <li>
+                  {screen === 'on' ? (
+                    'Screen: shared'
+                  ) : (
+                    <>
+                      Screen: not shared —{' '}
+                      <button
+                        className="linkButton"
+                        disabled={screen === 'requesting' || screen === 'checking'}
+                        onClick={shareScreen}
+                        type="button"
+                      >
+                        share
+                      </button>
+                    </>
+                  )}
                 </li>
               )}
             </ul>
@@ -781,51 +854,6 @@ export const AssessmentRunner = ({
               type="button"
             >
               Return to full screen
-            </button>
-          </div>
-        </div>
-      )}
-
-      {requireWebcam && camera !== 'on' && phase === 'test' && (
-        <div className="assessmentOverlay" role="dialog">
-          <div className="assessmentOverlay__box">
-            <h2>Webcam stopped</h2>
-            <p>
-              {camera === 'denied'
-                ? 'Camera access was blocked. Allow it in your browser settings, then try again.'
-                : 'Your webcam must stay on during this test. This has been recorded.'}
-            </p>
-            <button
-              className="button button--primary"
-              disabled={camera === 'requesting'}
-              onClick={enableCamera}
-              type="button"
-            >
-              {camera === 'requesting' ? 'Waiting for permission…' : 'Turn camera back on'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {recordScreen && screen !== 'on' && phase === 'test' && (
-        <div className="assessmentOverlay" role="dialog">
-          <div className="assessmentOverlay__box">
-            <h2>Screen sharing stopped</h2>
-            <p>
-              {screenShareMessages[screen] ??
-                'Sharing your entire screen is required for this test. This has been recorded.'}
-            </p>
-            <button
-              className="button button--primary"
-              disabled={screen === 'requesting' || screen === 'checking'}
-              onClick={shareScreen}
-              type="button"
-            >
-              {screen === 'requesting'
-                ? 'Waiting for your choice…'
-                : screen === 'checking'
-                  ? 'Checking your screen…'
-                  : 'Share entire screen again'}
             </button>
           </div>
         </div>

@@ -590,6 +590,7 @@ export interface ProctoringEvent {
     | 'paste'
     | 'camera_off'
     | 'screen_share_stopped'
+    | 'wrong_screen'
     | 'multiple_monitors'
     | 'code_run'
     | 'time_expired'

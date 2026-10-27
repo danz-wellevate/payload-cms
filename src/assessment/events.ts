@@ -9,6 +9,7 @@ export const proctoringEventTypes = [
   { value: 'paste', label: 'Pasted into the editor' },
   { value: 'camera_off', label: 'Webcam stopped' },
   { value: 'screen_share_stopped', label: 'Stopped sharing screen' },
+  { value: 'wrong_screen', label: "Shared screen didn't show their work" },
   { value: 'multiple_monitors', label: 'Multiple monitors detected' },
   { value: 'code_run', label: 'Ran code' },
   { value: 'time_expired', label: 'Time ran out' },
@@ -25,6 +26,7 @@ export const clientEventTypes: ProctoringEventType[] = [
   'paste',
   'camera_off',
   'screen_share_stopped',
+  'wrong_screen',
   'multiple_monitors',
   'code_run',
 ]
@@ -45,6 +47,7 @@ export const flaggedEventTypes: ProctoringEventType[] = [
   'paste',
   'camera_off',
   'screen_share_stopped',
+  'wrong_screen',
   'multiple_monitors',
 ]
 

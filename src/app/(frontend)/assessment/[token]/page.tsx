@@ -4,7 +4,7 @@ import { RichText } from '@payloadcms/richtext-lexical/react'
 import { notFound, redirect } from 'next/navigation'
 import React from 'react'
 
-import { getCurrentApplicant, loginUrl, normalizeEmail } from '@/applicant/server'
+import { getCurrentApplicant, normalizeEmail, setPasswordUrl } from '@/applicant/server'
 import {
   finalizeIfOverdue,
   findAssessmentByToken,
@@ -46,12 +46,16 @@ const Message = ({
 export default async function AssessmentPage({ params }: Args) {
   const { token } = await params
 
-  const applicant = await getCurrentApplicant()
-  if (!applicant) redirect(loginUrl(`/assessment/${token}`))
-
   const payload = await getPayloadClient()
   const found = await findAssessmentByToken(payload, token)
   if (!found) notFound()
+
+  // The invite link already identifies the candidate, so if they're not signed in yet, send
+  // them straight to "Set your password" to register — their email is never shown or asked for.
+  const applicant = await getCurrentApplicant()
+  if (!applicant) {
+    redirect(await setPasswordUrl(payload, found.candidateEmail, `/assessment/${token}`))
+  }
 
   // An admin-created invite is claimed by the applicant it was sent to.
   let assessment = found

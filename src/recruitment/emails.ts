@@ -2,6 +2,7 @@ import type { Payload } from 'payload'
 
 import type { Application, Assessment, InterviewSlot, Job } from '@/payload-types'
 
+import { setPasswordLink } from '../collections/Applicants'
 import { escapeHtml, formatDateTime, siteUrl } from './format'
 
 const brand = () => process.env.SMTP_FROM_NAME || 'Hiring Team'
@@ -59,9 +60,37 @@ export const sendApplicantLoginCreated = (payload: Payload, assessment: Assessme
       'An account was created for you so you can go straight to your coding assessment.',
       `Email: <strong>${escapeHtml(assessment.candidateEmail)}</strong><br/>Password: <strong>${escapeHtml(password)}</strong>`,
       button(link, 'Sign in and start the assessment'),
-      `Or use this link: <a href="${escapeHtml(link)}">${escapeHtml(link)}</a>`,
     ]),
   )
+}
+
+// Portal link for a candidate who hasn't set a password yet (created silently when they
+// applied): a one-time set-password link, so clicking it goes straight to password setup
+// instead of the login page's "enter your email" step. Once they've registered, this falls
+// back to the login page, pre-filled with their email so it skips straight to the password
+// field instead of asking for the email again.
+const applicantPortalLink = async (payload: Payload, email: string) => {
+  const { docs } = await payload.find({
+    collection: 'applicants',
+    where: { email: { equals: email } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const applicant = docs[0]
+  if (applicant && !applicant.passwordSet) {
+    try {
+      const token = await payload.forgotPassword({
+        collection: 'applicants',
+        data: { email },
+        disableEmail: true,
+      })
+      if (token) return setPasswordLink(token)
+    } catch (err) {
+      payload.logger.warn({ err, msg: `Could not create a set-password link for ${email}` })
+    }
+  }
+  return `${siteUrl()}/applicant/login?email=${encodeURIComponent(email)}`
 }
 
 // Email failures are logged but never block saving the application.
@@ -107,7 +136,7 @@ export const notifyHeadOfPlusNewApplication = async (payload: Payload, app: Appl
 
 // Step 3: the AI score reached the job's minimum. The admin picks the interview time directly
 // on the application (not the candidate); this just tells them they're moving forward.
-export const sendSchedulingInvite = (payload: Payload, app: Application, job: Job) =>
+export const sendSchedulingInvite = async (payload: Payload, app: Application, job: Job) =>
   send(
     payload,
     app.email,
@@ -116,7 +145,7 @@ export const sendSchedulingInvite = (payload: Payload, app: Application, job: Jo
       greeting(app),
       `Thank you for applying for <strong>${escapeHtml(job.title)}</strong>. We reviewed your resume and would like to invite you to an initial interview.`,
       "We'll be in touch shortly to confirm a time. You can check your application status anytime:",
-      button(`${siteUrl()}/applicant/login`, 'View your status'),
+      button(await applicantPortalLink(payload, app.email), 'View your status'),
     ]),
   )
 
@@ -160,7 +189,7 @@ export const notifyHeadOfPlusInterview = async (payload: Payload, app: Applicati
   )
 
 // Step 9: passed the initial interview, with the technical assessment schedule.
-export const sendAssessmentScheduled = (payload: Payload, app: Application, job: Job) =>
+export const sendAssessmentScheduled = async (payload: Payload, app: Application, job: Job) =>
   send(
     payload,
     app.email,
@@ -170,7 +199,7 @@ export const sendAssessmentScheduled = (payload: Payload, app: Application, job:
       `Congratulations, you passed the initial interview for <strong>${escapeHtml(job.title)}</strong>.`,
       `Your technical assessment is scheduled for <strong>${escapeHtml(formatDateTime(app.technicalAssessmentAt ?? ''))}</strong>.`,
       'At that time, sign in to My Profile with this email address and click <strong>Start technical assessment</strong>. It is a timed coding task in the browser. Your webcam and screen are recorded, and leaving the assessment window (for example with Alt+Tab) is reported.',
-      button(`${siteUrl()}/applicant/login`, 'Go to My Profile'),
+      button(await applicantPortalLink(payload, app.email), 'Go to My Profile'),
     ]),
   )
 
