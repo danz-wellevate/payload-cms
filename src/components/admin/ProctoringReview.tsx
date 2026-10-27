@@ -6,6 +6,7 @@ import React from 'react'
 import '@/styles/shadcn.css'
 
 import { ProctoringPlayer } from './review/ProctoringPlayer'
+import { withBase } from '@/lib/basePath'
 
 // Assessment → Proctoring tab: the synced review in compact form, linking to the full Review page.
 export const ProctoringReview = () => {
@@ -27,7 +28,7 @@ export const ProctoringReview = () => {
         examEnd={examEnd}
         examStart={examStart}
         layout="panel"
-        reviewHref={`${admin}/collections/assessments/${id}/review`}
+        reviewHref={withBase(`${admin}/collections/assessments/${id}/review`)}
       />
     </div>
   )

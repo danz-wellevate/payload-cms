@@ -6,6 +6,7 @@ import Editor from '@monaco-editor/react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { languages } from '@/playground/languages'
+import { withBase } from '@/lib/basePath'
 
 type RunResult = {
   status: { id: number; description: string }
@@ -62,7 +63,7 @@ export const CodePlayground = ({
     setOutput(null)
 
     try {
-      const response = await fetch('/playground/run', {
+      const response = await fetch(withBase('/playground/run'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ languageId, sourceCode, stdin }),

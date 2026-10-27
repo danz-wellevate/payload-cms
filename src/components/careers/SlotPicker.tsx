@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { withBase } from '@/lib/basePath'
 
 type Day = { day: string; times: { id: number; time: string }[] }
 
@@ -19,7 +20,7 @@ export const SlotPicker = ({ days, token }: { days: Day[]; token: string }) => {
     setError(null)
     setBusy(true)
     try {
-      const res = await fetch(`/schedule/${encodeURIComponent(token)}/book`, {
+      const res = await fetch(withBase(`/schedule/${encodeURIComponent(token)}/book`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slotId: selected }),

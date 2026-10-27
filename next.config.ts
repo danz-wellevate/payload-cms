@@ -7,6 +7,11 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  // Production runs under a sub-path (e.g. /plus_tech_exam); empty locally.
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  output: 'standalone',
+  // nginx redirects /plus_tech_exam -> /plus_tech_exam/; Next's default would strip it back (loop).
+  skipTrailingSlashRedirect: true,
   // Disable all page/data caching in development so every save is immediately visible.
   ...(process.env.NODE_ENV === 'development' && {
     experimental: {

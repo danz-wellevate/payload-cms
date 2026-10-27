@@ -14,6 +14,7 @@ import {
 } from '@/assessment/server'
 import { AssessmentRunner } from '@/components/assessment/AssessmentRunner'
 import { formatDateTime } from '@/recruitment/format'
+import { withBase } from '@/lib/basePath'
 
 type Args = { params: Promise<{ token: string }> }
 
@@ -72,7 +73,7 @@ export default async function AssessmentPage({ params }: Args) {
         body={`This exam link was sent to a different email address. You're signed in as ${applicant.email}.`}
         title="This exam belongs to another account"
       >
-        <form action="/applicant/auth/logout" method="post">
+        <form action={withBase('/applicant/auth/logout')} method="post">
           <button className="button button--outline" type="submit">
             Sign in with a different email
           </button>
@@ -99,7 +100,7 @@ export default async function AssessmentPage({ params }: Args) {
         body={`Your technical assessment opens on ${formatDateTime(assessment.availableFrom!)}. Come back to My Profile then.`}
         title="Not open yet"
       >
-        <a className="button button--outline" href="/applicant">
+        <a className="button button--outline" href={withBase('/applicant')}>
           Back to My Profile
         </a>
       </Message>

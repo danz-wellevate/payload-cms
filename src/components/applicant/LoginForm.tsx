@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from 'react'
 
 import { PasswordInput } from './PasswordInput'
+import { withBase } from '@/lib/basePath'
 
 type Step = 'email' | 'continuing' | 'password' | 'check-email'
 
 const post = async (url: string, body: unknown) => {
-  const res = await fetch(url, {
+  const res = await fetch(withBase(url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -62,7 +63,7 @@ export const LoginForm = ({
 
   const submitPassword = handle(async () => {
     await post('/applicant/auth/login', { email, password })
-    window.location.assign(next)
+    window.location.assign(withBase(next))
   })
 
   const sendLink = handle(async () => {
@@ -79,7 +80,7 @@ export const LoginForm = ({
           <strong>Development mode:</strong> email isn&apos;t set up yet (no SMTP in .env), so the
           link that would be emailed to <strong>{email}</strong> is shown here instead.
         </p>
-        <a className="button button--primary" href={devLink}>
+        <a className="button button--primary" href={withBase(devLink)}>
           Continue to set password
         </a>
         <button className="linkButton" onClick={() => setStep('email')} type="button">
