@@ -79,9 +79,6 @@ const formatRemaining = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
-const fullscreenSupported = () =>
-  typeof document !== 'undefined' && !!document.documentElement.requestFullscreen
-
 export const AssessmentRunner = ({
   token,
   candidateName,
@@ -106,14 +103,13 @@ export const AssessmentRunner = ({
   const [deadline, setDeadline] = useState<number | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [resume, setResume] = useState<{ code: string | null; languageId: number | null }>()
-  const [isFullscreen, setIsFullscreen] = useState(true)
+  // Used for webcam / screen share notices (not for tab or window switches).
   const [warning, setWarning] = useState<string | null>(null)
   // Live counters shown next to the webcam preview, mirroring the server's tabSwitches /
-  // timeAwaySeconds / fullscreenExits fields (see events/route.ts) so what the candidate sees
-  // matches what ends up on the assessment.
+  // timeAwaySeconds fields (see events/route.ts) so what the candidate sees matches what ends
+  // up on the assessment.
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [timeAwaySeconds, setTimeAwaySeconds] = useState(0)
-  const [fullscreenExitCount, setFullscreenExitCount] = useState(0)
   const [confirmingSubmit, setConfirmingSubmit] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -353,23 +349,17 @@ export const AssessmentRunner = ({
 
   const start = async () => {
     setError(null)
-    // Must run inside the click handler, before any await.
-    const fullscreen = fullscreenSupported()
-      ? document.documentElement.requestFullscreen().catch(() => undefined)
-      : Promise.resolve()
 
     try {
       const res = await fetch(`${base}/start`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Could not start the test.')
 
-      await fullscreen
       setDeadline(data.deadline)
       setResume({ code: data.code, languageId: data.languageId })
       if (data.languageId) languageIdRef.current = data.languageId
       setPhase('test')
     } catch (err) {
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined)
       setError(err instanceof Error ? err.message : 'Could not start the test.')
     }
   }
@@ -414,7 +404,6 @@ export const AssessmentRunner = ({
 
       stopCamera()
       stopScreenShare()
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined)
       if (reason === 'time_expired') setPhase('timeout')
       else if (exitHref) window.location.assign(exitHref)
       else setPhase('done')
@@ -422,7 +411,8 @@ export const AssessmentRunner = ({
     [base, exitHref, flush],
   )
 
-  // Proctoring: tab/window switches, full screen and autosave (recording is handled above).
+  // Proctoring: tab/window switches and autosave (recording is handled above). Switching is
+  // allowed, so it is only recorded — the candidate isn't shown a warning.
   useEffect(() => {
     if (phase !== 'test') return
 
@@ -451,23 +441,9 @@ export const AssessmentRunner = ({
       })
       setTabSwitchCount((n) => n + 1)
       setTimeAwaySeconds((s) => s + durationSeconds)
-      setWarning(
-        leftTab
-          ? 'You left the test tab. This has been recorded.'
-          : 'You switched to another window. This has been recorded.',
-      )
     }
 
     const onVisibility = () => (document.hidden ? goAway() : comeBack())
-
-    const onFullscreenChange = () => {
-      const active = !!document.fullscreenElement
-      setIsFullscreen(active)
-      if (!active) {
-        record('fullscreen_exit')
-        setFullscreenExitCount((n) => n + 1)
-      }
-    }
 
     const onPageHide = () => {
       const batch = takeBatch()
@@ -478,12 +454,10 @@ export const AssessmentRunner = ({
     }
 
     document.addEventListener('visibilitychange', onVisibility)
-    document.addEventListener('fullscreenchange', onFullscreenChange)
     window.addEventListener('blur', goAway)
     window.addEventListener('focus', comeBack)
     window.addEventListener('pagehide', onPageHide)
 
-    setIsFullscreen(!fullscreenSupported() || !!document.fullscreenElement)
     if ((window.screen as Screen & { isExtended?: boolean }).isExtended) {
       record('multiple_monitors')
     }
@@ -493,7 +467,6 @@ export const AssessmentRunner = ({
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
-      document.removeEventListener('fullscreenchange', onFullscreenChange)
       window.removeEventListener('blur', goAway)
       window.removeEventListener('focus', comeBack)
       window.removeEventListener('pagehide', onPageHide)
@@ -586,22 +559,21 @@ export const AssessmentRunner = ({
                 <div>
                   <h2>Before you begin</h2>
                   <ul className="assessmentRules">
-                    <li>The test runs in full screen. Leaving full screen is recorded.</li>
                     <li>
                       Switching to another tab, window or app is recorded, along with how long you
                       were away.
                     </li>
                     {requireWebcam && (
                       <li>
-                        You may turn on your webcam below — if you do, it&apos;s recorded during
-                        the test.
+                        You may turn on your webcam below — if you do, it&apos;s recorded during the
+                        test.
                       </li>
                     )}
                     {recordScreen && (
                       <li>
                         You may share your screen below — if you do, it&apos;s recorded during the
-                        test. If your interviewer is already watching over a call (e.g. Teams),
-                        you don&apos;t need to share here too.
+                        test. If your interviewer is already watching over a call (e.g. Teams), you
+                        don&apos;t need to share here too.
                       </li>
                     )}
                     <li>Text pasted into the editor is recorded.</li>
@@ -801,16 +773,10 @@ export const AssessmentRunner = ({
               </span>
             )}
             <ul className="assessmentTracker__stats">
-              <li>{isFullscreen ? 'Full screen' : 'Not full screen'}</li>
               <li>
                 {tabSwitchCount} tab switch{tabSwitchCount === 1 ? '' : 'es'}
               </li>
               <li>{formatRemaining(timeAwaySeconds * 1000)} away</li>
-              {fullscreenExitCount > 0 && (
-                <li>
-                  {fullscreenExitCount} full-screen exit{fullscreenExitCount === 1 ? '' : 's'}
-                </li>
-              )}
               {recordScreen && (
                 <li>
                   {screen === 'on' ? (
@@ -838,24 +804,6 @@ export const AssessmentRunner = ({
       {warning && (
         <div className="assessmentWarning" role="alert">
           {warning}
-        </div>
-      )}
-
-      {!isFullscreen && phase === 'test' && (
-        <div className="assessmentOverlay" role="dialog">
-          <div className="assessmentOverlay__box">
-            <h2>Full screen required</h2>
-            <p>
-              You left full screen mode. This has been recorded. Return to full screen to continue.
-            </p>
-            <button
-              className="button button--primary"
-              onClick={() => document.documentElement.requestFullscreen().catch(() => undefined)}
-              type="button"
-            >
-              Return to full screen
-            </button>
-          </div>
         </div>
       )}
 
