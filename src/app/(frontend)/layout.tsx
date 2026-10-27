@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/site/SiteFooter'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { getSiteData, getThemeStyles } from '@/theme/getSiteData'
 import './styles.css'
+import { withBase } from '@/lib/basePath'
 
 // Always render with the latest CMS content (pages, menus, theme).
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: settings.siteName || 'Payload Blank Template',
     description: settings.tagline || 'A blank template using Payload in a Next.js app.',
-    icons: favicon ? { icon: favicon } : undefined,
+    icons: favicon ? { icon: withBase(favicon) } : undefined,
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { Button, FieldLabel, useFormFields } from '@payloadcms/ui'
 import React, { useEffect, useState } from 'react'
+import { withBase } from '@/lib/basePath'
 
 // Shows the candidate's invite link (built from the generated token) with a copy button.
 export const InviteLinkField = () => {
@@ -11,7 +12,7 @@ export const InviteLinkField = () => {
 
   useEffect(() => setOrigin(window.location.origin), [])
 
-  const link = token ? `${origin}/assessment/${token}` : ''
+  const link = token ? `${origin}${withBase(`/assessment/${token}`)}` : ''
 
   const copy = async () => {
     await navigator.clipboard.writeText(link)

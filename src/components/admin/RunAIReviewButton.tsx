@@ -2,6 +2,7 @@
 
 import { Button, toast, useConfig, useDocumentInfo, useFormFields } from '@payloadcms/ui'
 import React, { useState } from 'react'
+import { withBase } from '@/lib/basePath'
 
 // Re-scores the resume, e.g. after editing the job's qualifications or when the review failed.
 export const RunAIReviewButton = () => {
@@ -19,7 +20,7 @@ export const RunAIReviewButton = () => {
   const run = async () => {
     setBusy(true)
     try {
-      const res = await fetch(`${api}/applications/${id}/ai-review`, {
+      const res = await fetch(`${withBase(api)}/applications/${id}/ai-review`, {
         method: 'POST',
         credentials: 'include',
       })

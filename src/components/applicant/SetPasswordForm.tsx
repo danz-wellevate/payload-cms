@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 
 import { PasswordInput } from './PasswordInput'
+import { withBase } from '@/lib/basePath'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -23,7 +24,7 @@ export const SetPasswordForm = ({ next = '/applicant', token }: { next?: string;
 
     setBusy(true)
     try {
-      const res = await fetch('/applicant/auth/set-password', {
+      const res = await fetch(withBase('/applicant/auth/set-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, name, password }),

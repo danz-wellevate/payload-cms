@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import '@/styles/shadcn.css'
+import { withBase } from '@/lib/basePath'
 
 const awaitingReview: Where = {
   and: [{ status: { equals: 'completed' } }, { result: { equals: 'pending' } }],
@@ -42,7 +43,7 @@ const toQuery = (where: Where, prefix = 'where'): string[] =>
 export const ExamOverview = async ({ payload }: { payload: Payload }) => {
   const admin = payload.config.routes.admin
   const listUrl = (collection: string, where?: Where) =>
-    `${admin}/collections/${collection}${where ? `?${toQuery(where).join('&')}` : ''}`
+    withBase(`${admin}/collections/${collection}${where ? `?${toQuery(where).join('&')}` : ''}`)
 
   const count = async (where: Where) =>
     (await payload.count({ collection: 'assessments', where })).totalDocs
@@ -186,7 +187,7 @@ export const ExamOverview = async ({ payload }: { payload: Payload }) => {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild className="text-[13px]" size="sm" variant="outline">
-                        <a href={`${admin}/collections/assessments/${exam.id}/review`}>Review</a>
+                        <a href={withBase(`${admin}/collections/assessments/${exam.id}/review`)}>Review</a>
                       </Button>
                     </TableCell>
                   </TableRow>

@@ -2,6 +2,7 @@
 
 import { FieldLabel, useConfig, useField } from '@payloadcms/ui'
 import React, { useEffect, useRef, useState } from 'react'
+import { withBase } from '@/lib/basePath'
 
 type Suggestion = { id: number | string; email: string; name?: string }
 
@@ -35,7 +36,7 @@ export const CandidateEmailField = () => {
         limit: '8',
         depth: '0',
       })
-      const res = await fetch(`${api}/applicants?${params.toString()}`, { credentials: 'include' })
+      const res = await fetch(`${withBase(api)}/applicants?${params.toString()}`, { credentials: 'include' })
       const data = await res.json().catch(() => null)
       setSuggestions(
         (data?.docs ?? []).map((doc: { id: number | string; email: string; name?: string }) => ({

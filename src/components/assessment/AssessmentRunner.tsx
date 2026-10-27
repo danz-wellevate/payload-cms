@@ -16,6 +16,7 @@ import { formatMinutes } from '@/assessment/events'
 import { checkSharedScreen } from '@/assessment/screenCheck'
 import { CodePlayground } from '@/components/playground/CodePlayground'
 import { languages } from '@/playground/languages'
+import { withBase } from '@/lib/basePath'
 
 type Props = {
   token: string
@@ -89,7 +90,7 @@ export const AssessmentRunner = ({
   exitHref,
   children,
 }: Props) => {
-  const base = `/assessment/${token}`
+  const base = withBase(`/assessment/${token}`)
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [error, setError] = useState<string | null>(null)
@@ -405,7 +406,7 @@ export const AssessmentRunner = ({
       stopCamera()
       stopScreenShare()
       if (reason === 'time_expired') setPhase('timeout')
-      else if (exitHref) window.location.assign(exitHref)
+      else if (exitHref) window.location.assign(withBase(exitHref))
       else setPhase('done')
     },
     [base, exitHref, flush],
@@ -499,7 +500,7 @@ export const AssessmentRunner = ({
   // Time ran out: tell the candidate, then send them back to the homepage.
   useEffect(() => {
     if (phase !== 'timeout') return
-    const timer = setTimeout(() => window.location.assign('/'), TIMEOUT_REDIRECT_MS)
+    const timer = setTimeout(() => window.location.assign(withBase('/')), TIMEOUT_REDIRECT_MS)
     return () => clearTimeout(timer)
   }, [phase])
 
@@ -514,11 +515,11 @@ export const AssessmentRunner = ({
             automatically. You&apos;ll be taken back to the homepage in a few seconds.
           </p>
           <div className="buttonGroup">
-            <a className="button button--primary" href="/">
+            <a className="button button--primary" href={withBase('/')}>
               Go to the homepage
             </a>
             {exitHref && (
-              <a className="button button--outline" href={exitHref}>
+              <a className="button button--outline" href={withBase(exitHref)}>
                 View my dashboard
               </a>
             )}

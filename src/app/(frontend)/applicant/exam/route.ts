@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 
 import { findApplicantExam, getCurrentApplicant, loginUrl } from '@/applicant/server'
 import { getPayloadClient, isNotYetAvailable } from '@/assessment/server'
+import { withBase } from '@/lib/basePath'
 
 // Opens the applicant's exam in the IDE: linked from sign-in (GET) and the dashboard's
 // Start/Resume button (POST). Each applicant gets one exam attempt; admins can allow a retake
 // by setting the assessment back to "Invited". The timer only starts on the exam's Start button.
 // Applicants who applied for a job only get the exam the Head of Plus scheduled for them.
 const openExam = async (request: Request) => {
-  const redirect = (path: string) => NextResponse.redirect(new URL(path, request.url), 303)
+  const redirect = (path: string) => NextResponse.redirect(new URL(withBase(path), request.url), 303)
 
   const applicant = await getCurrentApplicant()
   if (!applicant) return redirect(loginUrl('/applicant/exam'))

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import React from 'react'
 
 import type { Media, Post } from '@/payload-types'
+import { withBase } from '@/lib/basePath'
 
 export const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', {
@@ -19,7 +20,7 @@ export const PostCover = ({ post, className }: { post: Pick<Post, 'coverImage' |
     <div className={`postCover ${className ?? ''}`}>
       {image?.url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img alt={image.alt || post.title} src={image.url} />
+        <img alt={image.alt || post.title} src={withBase(image.url)} />
       ) : (
         <span className="postCover__placeholder">{post.category || 'Article'}</span>
       )}
