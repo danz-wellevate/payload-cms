@@ -12,6 +12,7 @@ import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Applicants } from './collections/Applicants'
 import { Assessments } from './collections/Assessments'
+import { SavedQuestions } from './collections/SavedQuestions'
 import { ProctoringEvents } from './collections/ProctoringEvents'
 import { ProctoringRecordings } from './collections/ProctoringRecordings'
 import { ProctoringSnapshots } from './collections/ProctoringSnapshots'
@@ -44,12 +45,13 @@ export default buildConfig({
     },
   },
   collections: [
-    Pages,
-    Posts,
     Users,
     Media,
+    Pages,
+    Posts,
     Applicants,
     Assessments,
+    SavedQuestions,
     ProctoringEvents,
     ProctoringRecordings,
     ProctoringSnapshots,

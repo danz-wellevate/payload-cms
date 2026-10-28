@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { RichText } from '@payloadcms/richtext-lexical/react'
 
 import type { ClientEvent, ProctoringEventType, RecordingSource } from '@/assessment/events'
 import type { PlaygroundEditor } from '@/components/playground/CodePlayground'
@@ -26,9 +27,13 @@ type Props = {
   // Candidate must share their entire screen, which is recorded.
   recordScreen: boolean
   inProgress: boolean
+  // True when the assessment has multi-task setup (decided on the server). Avoids flashing the
+  // single-task instructions while the first task loads.
+  hasTasks?: boolean
   // Where to send the candidate after they submit (e.g. the applicant dashboard).
   exitHref?: string
-  // The task/instructions panel, rendered on the server.
+  // The task/instructions panel, rendered on the server. Used when the assessment has no
+  // multi-task setup; otherwise the task panel below replaces it.
   children: React.ReactNode
 }
 
@@ -50,6 +55,16 @@ type ScreenShare =
   | 'wrong-surface'
   | 'wrong-screen'
   | 'unsupported'
+
+// State of the multi-task flow, as returned by the server. Only unlocked tasks are included and
+// the expected answers are never sent to the browser.
+type TaskState = {
+  total: number
+  current: number
+  finished: boolean
+  tasks: { title: string; prompt: unknown }[]
+}
+type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
 
 const screenShareMessages: Partial<Record<ScreenShare, string>> = {
   denied:
@@ -80,6 +95,81 @@ const formatRemaining = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
+// The instructions panel for multi-task assessments: shows the current task and the result of
+// the last check. The "Done / Submit" button in the top bar does the checking; the next task only
+// appears once the program's output matches.
+const TaskPanel = ({
+  state,
+  status,
+  message,
+}: {
+  state: TaskState
+  status: AnswerStatus
+  message: string | null
+}) => {
+  const solved = state.tasks.slice(0, state.current)
+  const active = state.finished ? null : state.tasks[state.current]
+  const isLast = state.current + 1 >= state.total
+
+  return (
+    <div className="taskPanel">
+      <p className="eyebrow">
+        {state.finished
+          ? `All ${state.total} tasks complete`
+          : `Task ${state.current + 1} of ${state.total}`}
+      </p>
+
+      {solved.map((task, index) => (
+        <details key={index} style={{ marginBottom: '0.75rem' }}>
+          <summary>
+            ✓ {task.title} <span className="muted">(solved)</span>
+          </summary>
+          <RichText data={task.prompt as never} />
+        </details>
+      ))}
+
+      {active && (
+        <>
+          <h2>{active.title}</h2>
+          <RichText data={active.prompt as never} />
+
+          <p className="muted" style={{ marginTop: '1rem' }}>
+            Write your code and run it. When your program prints the expected output, press
+            &ldquo;Done / Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
+          </p>
+          {status === 'checking' && (
+            <p className="muted" role="status">
+              Checking your output…
+            </p>
+          )}
+          {status === 'wrong' && (
+            <p className="assessmentError" role="alert">
+              Your output doesn&apos;t match the expected output yet. Run your code, check the
+              result and try again — your time keeps running.
+            </p>
+          )}
+          {status === 'error' && message && (
+            <p className="assessmentError" role="alert">
+              {message}
+            </p>
+          )}
+          {status === 'correct' && (
+            <p className="muted" role="status">
+              Correct! Moving on to the next task.
+            </p>
+          )}
+        </>
+      )}
+
+      {state.finished && (
+        <p className="lead">
+          Every task is complete. Press &ldquo;Done / Submit&rdquo; to hand in your code.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export const AssessmentRunner = ({
   token,
   candidateName,
@@ -87,10 +177,13 @@ export const AssessmentRunner = ({
   requireWebcam,
   recordScreen,
   inProgress,
+  hasTasks = false,
   exitHref,
   children,
 }: Props) => {
   const base = withBase(`/assessment/${token}`)
+  // Candidate-facing task endpoints (see the Assessments collection).
+  const taskApi = withBase(`/api/assessments/by-token/${token}`)
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +205,12 @@ export const AssessmentRunner = ({
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [timeAwaySeconds, setTimeAwaySeconds] = useState(0)
   const [confirmingSubmit, setConfirmingSubmit] = useState(false)
+
+  // Multi-task flow. `null` = not loaded yet or the assessment has a single task (legacy mode).
+  const [taskState, setTaskState] = useState<TaskState | null>(null)
+  const [answerStatus, setAnswerStatus] = useState<AnswerStatus>('idle')
+  const [answerMessage, setAnswerMessage] = useState<string | null>(null)
+  const [tasksFailed, setTasksFailed] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -348,6 +447,80 @@ export const AssessmentRunner = ({
     }
   }, [phase, recordScreen, screen, record])
 
+  // Once the test is running, load the multi-task state (also restores the right task when the
+  // candidate resumes). If the assessment has no tasks, `total` is 0 and we stay in single-task
+  // mode, showing the server-rendered instructions as before.
+  useEffect(() => {
+    if (phase !== 'test') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${taskApi}/tasks`, { cache: 'no-store' })
+        if (!res.ok) throw new Error()
+        const data = (await res.json()) as TaskState
+        if (!cancelled && data.total > 0) setTaskState(data)
+      } catch {
+        // Only a problem when the assessment is supposed to have tasks.
+        if (!cancelled) setTasksFailed(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [phase, taskApi])
+
+  // Sends the current code to the server, which re-runs it and compares the output with the
+  // task's expected output. Resolves to true only when that was the LAST task and it is now
+  // solved. The countdown is untouched, so all tasks share the same time limit.
+  const checkTask = async (): Promise<boolean> => {
+    if (!taskState || taskState.finished || answerStatus === 'checking') return false
+    setAnswerStatus('checking')
+    setAnswerMessage(null)
+    try {
+      const res = await fetch(`${taskApi}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskIndex: taskState.current,
+          code: editorRef.current?.getValue() ?? '',
+          languageId: languageIdRef.current,
+          stdin: stdinRef.current,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (data.state) setTaskState(data.state as TaskState) // server is the source of truth
+      if (!res.ok) {
+        setAnswerStatus('error')
+        setAnswerMessage(data.error ?? 'Could not check your output. Please try again.')
+        return false
+      }
+
+      if (data.correct) {
+        setAnswerStatus('correct')
+        return Boolean(data.state?.finished)
+      }
+      setAnswerStatus('wrong')
+      return false
+    } catch {
+      setAnswerStatus('error')
+      setAnswerMessage('Could not check your output. Check your connection and try again.')
+      return false
+    }
+  }
+
+  // "Done / Submit": with tasks, check the output first — a correct one unlocks the next task,
+  // and after the last task the usual submit confirmation opens. Without tasks it just opens
+  // the confirmation as before.
+  const handleDone = async () => {
+    if (!taskState || taskState.finished) {
+      setConfirmingSubmit(true)
+      return
+    }
+    const allSolved = await checkTask()
+    if (allSolved) setConfirmingSubmit(true)
+  }
+
   const start = async () => {
     setError(null)
 
@@ -394,6 +567,14 @@ export const AssessmentRunner = ({
             reason,
           }),
         })
+        // 422 = tasks still unsolved; the server refused the early hand-in.
+        if (res.status === 422) {
+          const data = await res.json().catch(() => ({}))
+          finishedRef.current = false
+          setPhase('test')
+          setError(data.error ?? 'Answer all tasks before submitting.')
+          return
+        }
         // 409 = already closed by the server (e.g. time ran out); the autosave was kept.
         if (!res.ok && res.status !== 409) throw new Error()
       } catch {
@@ -561,6 +742,11 @@ export const AssessmentRunner = ({
                   <h2>Before you begin</h2>
                   <ul className="assessmentRules">
                     <li>
+                      Some tests have several tasks. Your program&apos;s output must match the
+                      expected output before the next task appears (press Done / Submit to check).
+                      The time limit covers all tasks together.
+                    </li>
+                    <li>
                       Switching to another tab, window or app is recorded, along with how long you
                       were away.
                     </li>
@@ -721,11 +907,11 @@ export const AssessmentRunner = ({
           </span>
           <button
             className="button button--primary"
-            disabled={phase === 'submitting'}
-            onClick={() => setConfirmingSubmit(true)}
+            disabled={phase === 'submitting' || answerStatus === 'checking'}
+            onClick={handleDone}
             type="button"
           >
-            Done / Submit
+            {answerStatus === 'checking' ? 'Checking…' : 'Done / Submit'}
           </button>
         </div>
       </div>
@@ -738,7 +924,19 @@ export const AssessmentRunner = ({
 
       <section className="section playgroundPage">
         <div className="container playground">
-          <aside className="playground__instructions">{children}</aside>
+          <aside className="playground__instructions">
+            {taskState ? (
+              <TaskPanel message={answerMessage} state={taskState} status={answerStatus} />
+            ) : hasTasks ? (
+              <p className="muted" role={tasksFailed ? 'alert' : 'status'}>
+                {tasksFailed
+                  ? 'Your tasks could not be loaded. Check your connection and reload the page — your timer keeps running.'
+                  : 'Loading your tasks…'}
+              </p>
+            ) : (
+              children
+            )}
+          </aside>
           <CodePlayground
             initialCode={resume?.code}
             initialLanguageId={resume?.languageId}
@@ -811,23 +1009,44 @@ export const AssessmentRunner = ({
       {confirmingSubmit && (
         <div className="assessmentOverlay" role="dialog">
           <div className="assessmentOverlay__box">
-            <h2>Are you done?</h2>
-            <p>
-              Your code will be submitted for review. You won&apos;t be able to make changes
-              afterwards.
-            </p>
-            <div className="buttonGroup">
-              <button className="button button--primary" onClick={() => submit()} type="button">
-                Submit
-              </button>
-              <button
-                className="button button--outline"
-                onClick={() => setConfirmingSubmit(false)}
-                type="button"
-              >
-                Keep working
-              </button>
-            </div>
+            {taskState && !taskState.finished ? (
+              <>
+                <h2>Not finished yet</h2>
+                <p>
+                  Answer all tasks before submitting — you have completed {taskState.current} of{' '}
+                  {taskState.total}. If time runs out, your code is submitted automatically.
+                </p>
+                <div className="buttonGroup">
+                  <button
+                    className="button button--primary"
+                    onClick={() => setConfirmingSubmit(false)}
+                    type="button"
+                  >
+                    Keep working
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>Are you done?</h2>
+                <p>
+                  Your code will be submitted for review. You won&apos;t be able to make changes
+                  afterwards.
+                </p>
+                <div className="buttonGroup">
+                  <button className="button button--primary" onClick={() => submit()} type="button">
+                    Submit
+                  </button>
+                  <button
+                    className="button button--outline"
+                    onClick={() => setConfirmingSubmit(false)}
+                    type="button"
+                  >
+                    Keep working
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
