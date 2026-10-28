@@ -68,12 +68,13 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    pages: Page;
-    posts: Post;
     users: User;
     media: Media;
+    pages: Page;
+    posts: Post;
     applicants: Applicant;
     assessments: Assessment;
+    'saved-questions': SavedQuestion;
     'proctoring-events': ProctoringEvent;
     'proctoring-recordings': ProctoringRecording;
     'proctoring-snapshots': ProctoringSnapshot;
@@ -95,12 +96,13 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    pages: PagesSelect<false> | PagesSelect<true>;
-    posts: PostsSelect<false> | PostsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     applicants: ApplicantsSelect<false> | ApplicantsSelect<true>;
     assessments: AssessmentsSelect<false> | AssessmentsSelect<true>;
+    'saved-questions': SavedQuestionsSelect<false> | SavedQuestionsSelect<true>;
     'proctoring-events': ProctoringEventsSelect<false> | ProctoringEventsSelect<true>;
     'proctoring-recordings': ProctoringRecordingsSelect<false> | ProctoringRecordingsSelect<true>;
     'proctoring-snapshots': ProctoringSnapshotsSelect<false> | ProctoringSnapshotsSelect<true>;
@@ -174,6 +176,56 @@ export interface ApplicantAuthOperations {
     email: string;
     password: string;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name?: string | null;
+  /**
+   * Head of Plus users get the hiring emails (booked interviews, finished assessments). If nobody has this role, every admin gets them.
+   */
+  role?: ('admin' | 'head_of_plus') | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -386,56 +438,6 @@ export interface Post {
   createdAt: string;
 }
 /**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  name?: string | null;
-  /**
-   * Head of Plus users get the hiring emails (booked interviews, finished assessments). If nobody has this role, every admin gets them.
-   */
-  role?: ('admin' | 'head_of_plus') | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-  collection: 'users';
-}
-/**
  * Applicants sign up themselves at /applicant/login. Set each one's exam time limit here.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -488,7 +490,7 @@ export interface Assessment {
   candidateName: string;
   candidateEmail: string;
   /**
-   * Shown beside the editor. Leave empty to use the instructions from Settings → Code Playground.
+   * Used only when no tasks are added below. Shown beside the editor. Leave empty to use the instructions from Settings → Code Playground.
    */
   task?: {
     root: {
@@ -505,6 +507,57 @@ export interface Assessment {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Optional. Add 2 or more tasks. The candidates code must print the expected output for a task before the next one appears. The time limit is shared across all tasks. If you add tasks here, the single task above is ignored.
+   */
+  tasks?:
+    | {
+        /**
+         * Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty.
+         */
+        savedQuestion?: (number | null) | SavedQuestion;
+        /**
+         * Optional heading, e.g. "Task 1 — FizzBuzz".
+         */
+        title?: string | null;
+        prompt?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        /**
+         * Optional. If the program reads input, put it here — it's used when checking the output. Leave empty to use whatever the candidate has in the Input box.
+         */
+        testInput?: string | null;
+        /**
+         * The candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Never shown to the candidate.
+         */
+        acceptedAnswers?:
+          | {
+              answer: string;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Off = "Hello" and "hello" count as the same output.
+         */
+        caseSensitive?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Total time for all tasks together.
+   */
   durationMinutes: number;
   /**
    * Optional. The Start button appears in My Profile at this time. Set by the hiring workflow.
@@ -525,7 +578,21 @@ export interface Assessment {
   languageLabel?: string | null;
   languageId?: number | null;
   /**
-   * Autosaved while the candidate works; final once submitted.
+   * The code and output the candidate had when each task was solved, in order.
+   */
+  taskResults?:
+    | {
+        taskNumber?: number | null;
+        taskTitle?: string | null;
+        languageLabel?: string | null;
+        solvedAt?: string | null;
+        code?: string | null;
+        output?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Autosaved while the candidate works; final once submitted. With several tasks this is the code from the last task they worked on — see "Solved tasks" above for each task.
    */
   code?: string | null;
   /**
@@ -564,6 +631,8 @@ export interface Assessment {
    * Submitted after the time limit.
    */
   submittedLate?: boolean | null;
+  currentTaskIndex?: number | null;
+  wrongAnswers?: number | null;
   tabSwitches?: number | null;
   timeAwaySeconds?: number | null;
   fullscreenExits?: number | null;
@@ -571,6 +640,48 @@ export interface Assessment {
   pastedCharacters?: number | null;
   codeRuns?: number | null;
   multipleMonitors?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Your question library. Save a task here with the bookmark button inside an assessment, or create one directly. Reuse it in any assessment from the Tasks list.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "saved-questions".
+ */
+export interface SavedQuestion {
+  id: number;
+  /**
+   * Shown as the task title when you reuse this question.
+   */
+  name: string;
+  prompt: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * Optional. If the program reads input, put it here — it's used when checking the output.
+   */
+  testInput?: string | null;
+  /**
+   * The candidate passes when their program's output matches ANY of these. Never shown to the candidate.
+   */
+  acceptedAnswers: {
+    answer: string;
+    id?: string | null;
+  }[];
+  caseSensitive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -850,14 +961,6 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'pages';
-        value: number | Page;
-      } | null)
-    | ({
-        relationTo: 'posts';
-        value: number | Post;
-      } | null)
-    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
@@ -866,12 +969,24 @@ export interface PayloadLockedDocument {
         value: number | Media;
       } | null)
     | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
+      } | null)
+    | ({
         relationTo: 'applicants';
         value: number | Applicant;
       } | null)
     | ({
         relationTo: 'assessments';
         value: number | Assessment;
+      } | null)
+    | ({
+        relationTo: 'saved-questions';
+        value: number | SavedQuestion;
       } | null)
     | ({
         relationTo: 'proctoring-events';
@@ -952,6 +1067,49 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  role?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1102,49 +1260,6 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  name?: T;
-  role?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  resetPasswordRequestedAt?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "applicants_select".
  */
 export interface ApplicantsSelect<T extends boolean = true> {
@@ -1178,6 +1293,22 @@ export interface AssessmentsSelect<T extends boolean = true> {
   candidateName?: T;
   candidateEmail?: T;
   task?: T;
+  tasks?:
+    | T
+    | {
+        savedQuestion?: T;
+        title?: T;
+        prompt?: T;
+        testInput?: T;
+        acceptedAnswers?:
+          | T
+          | {
+              answer?: T;
+              id?: T;
+            };
+        caseSensitive?: T;
+        id?: T;
+      };
   durationMinutes?: T;
   availableFrom?: T;
   expiresAt?: T;
@@ -1185,6 +1316,17 @@ export interface AssessmentsSelect<T extends boolean = true> {
   recordScreen?: T;
   languageLabel?: T;
   languageId?: T;
+  taskResults?:
+    | T
+    | {
+        taskNumber?: T;
+        taskTitle?: T;
+        languageLabel?: T;
+        solvedAt?: T;
+        code?: T;
+        output?: T;
+        id?: T;
+      };
   code?: T;
   finalRun?:
     | T
@@ -1206,6 +1348,8 @@ export interface AssessmentsSelect<T extends boolean = true> {
   completedAt?: T;
   endedBy?: T;
   submittedLate?: T;
+  currentTaskIndex?: T;
+  wrongAnswers?: T;
   tabSwitches?: T;
   timeAwaySeconds?: T;
   fullscreenExits?: T;
@@ -1213,6 +1357,24 @@ export interface AssessmentsSelect<T extends boolean = true> {
   pastedCharacters?: T;
   codeRuns?: T;
   multipleMonitors?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "saved-questions_select".
+ */
+export interface SavedQuestionsSelect<T extends boolean = true> {
+  name?: T;
+  prompt?: T;
+  testInput?: T;
+  acceptedAnswers?:
+    | T
+    | {
+        answer?: T;
+        id?: T;
+      };
+  caseSensitive?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -10,6 +10,11 @@ const MAX_CODE_LENGTH = 64 * 1024
 const MAX_STDIN_LENGTH = 16 * 1024
 const MAX_OUTPUT_LENGTH = 16 * 1024
 
+// true  = the candidate must solve every task before they can hand in early.
+// false = early submit is allowed (progress is still recorded in "Current task").
+// A time-expired auto-submit is always accepted either way.
+const REQUIRE_ALL_TASKS = true
+
 const clip = (value: string) =>
   value.length > MAX_OUTPUT_LENGTH ? `${value.slice(0, MAX_OUTPUT_LENGTH)}\n… (truncated)` : value
 
@@ -18,16 +23,35 @@ const clip = (value: string) =>
 export async function POST(request: Request, { params }: Args) {
   const { token } = await params
   const loaded = await loadActiveAssessment(token)
-  if ('error' in loaded) return NextResponse.json({ error: loaded.error }, { status: loaded.status })
+  if ('error' in loaded)
+    return NextResponse.json({ error: loaded.error }, { status: loaded.status })
   const { payload, assessment } = loaded
 
   const body = await request.json().catch(() => null)
   const timedOut = body?.reason === 'time_expired'
   const stdin = typeof body?.stdin === 'string' ? body.stdin.slice(0, MAX_STDIN_LENGTH) : ''
 
+  // Multi-task assessments: refuse an early hand-in until every task has a correct answer.
+  // (422, not 409 — the client treats 409 as "already closed".)
+  if (REQUIRE_ALL_TASKS && !timedOut) {
+    const { tasks, currentTaskIndex } = assessment as unknown as {
+      tasks?: unknown[] | null
+      currentTaskIndex?: number | null
+    }
+    const total = tasks?.length ?? 0
+    const solved = currentTaskIndex ?? 0
+    if (total > 0 && solved < total) {
+      return NextResponse.json(
+        { error: `Answer all tasks before submitting (${solved} of ${total} done).` },
+        { status: 422 },
+      )
+    }
+  }
+
   // Fall back to the last autosave if the browser couldn't send the code.
   const submitted = typeof body?.languageId === 'number' ? findLanguage(body.languageId) : undefined
-  const language = submitted ?? (assessment.languageId ? findLanguage(assessment.languageId) : undefined)
+  const language =
+    submitted ?? (assessment.languageId ? findLanguage(assessment.languageId) : undefined)
   const code =
     submitted && typeof body?.code === 'string'
       ? body.code.slice(0, MAX_CODE_LENGTH)

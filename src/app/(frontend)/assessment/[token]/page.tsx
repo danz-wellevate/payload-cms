@@ -114,11 +114,16 @@ export default async function AssessmentPage({ params }: Args) {
   const settings = await payload.findGlobal({ slug: 'playground' })
   const instructions = assessment.task ?? settings.instructions
 
+  // Multi-task assessments: the runner loads the tasks (one at a time, answers stay on the
+  // server) from the token-checked API, so only a flag is passed down here — never the tasks.
+  const hasTasks = (assessment.tasks?.length ?? 0) > 0
+
   return (
     <AssessmentRunner
       candidateName={assessment.candidateName}
       durationMinutes={assessment.durationMinutes}
       exitHref="/applicant"
+      hasTasks={hasTasks}
       inProgress={assessment.status === 'in_progress'}
       recordScreen={assessment.recordScreen !== false}
       requireWebcam={assessment.requireWebcam !== false}

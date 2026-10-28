@@ -23,6 +23,8 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { CandidateEmailField as CandidateEmailField_e78aa6a887a121bc972f3757fe8f64e2 } from '../../../components/admin/CandidateEmailField'
 import { InviteLinkField as InviteLinkField_6646df66ebdee9fbd713829f62faac7c } from '../../../components/admin/InviteLinkField'
+import { SaveQuestionButton as SaveQuestionButton_544626cdd8d1765c56ab1b80f0d2ae49 } from '../../../components/admin/SaveQuestionButton'
+import { TaskRowLabel as TaskRowLabel_5422108a3e5540a2d553282ee8c311f1 } from '../../../components/admin/TaskRowLabel'
 import { ProctoringReview as ProctoringReview_e01a4b8e8a96679a63bef6088367bab4 } from '../../../components/admin/ProctoringReview'
 import { SnapshotGallery as SnapshotGallery_aba90c4d3df8dc227a8eb013538a096e } from '../../../components/admin/SnapshotGallery'
 import { ResetAssessmentButton as ResetAssessmentButton_cfcf7d7091ad6d388976e41dfaeaf24d } from '../../../components/admin/ResetAssessmentButton'
@@ -62,6 +64,8 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "/components/admin/CandidateEmailField#CandidateEmailField": CandidateEmailField_e78aa6a887a121bc972f3757fe8f64e2,
   "/components/admin/InviteLinkField#InviteLinkField": InviteLinkField_6646df66ebdee9fbd713829f62faac7c,
+  "/components/admin/SaveQuestionButton#SaveQuestionButton": SaveQuestionButton_544626cdd8d1765c56ab1b80f0d2ae49,
+  "/components/admin/TaskRowLabel#TaskRowLabel": TaskRowLabel_5422108a3e5540a2d553282ee8c311f1,
   "/components/admin/ProctoringReview#ProctoringReview": ProctoringReview_e01a4b8e8a96679a63bef6088367bab4,
   "/components/admin/SnapshotGallery#SnapshotGallery": SnapshotGallery_aba90c4d3df8dc227a8eb013538a096e,
   "/components/admin/ResetAssessmentButton#ResetAssessmentButton": ResetAssessmentButton_cfcf7d7091ad6d388976e41dfaeaf24d,
