@@ -210,8 +210,10 @@ const isPastDeadline = (assessment: TaskAssessment) => {
 }
 
 // Called from afterChange when the admin typed a password into "Candidate login password" and
-// saved. Creates (or claims a passwordless) applicant account and links it to the assessment, so
-// the candidate can sign in with that password and go straight to the exam.
+// saved. Creates (or claims a passwordless) applicant account and links it to the assessment.
+// That password is a master key, not the candidate's own — passwordSet stays false so the
+// emailed link sends them to set their own password (and `applicantPasswordSet` in the admin
+// shows unchecked until they do).
 const createApplicantLogin = async (
   req: PayloadRequest,
   assessment: Assessment,
@@ -240,7 +242,7 @@ const createApplicantLogin = async (
       applicant = await req.payload.update({
         collection: 'applicants',
         id: applicant.id,
-        data: { password, passwordSet: true, name: assessment.candidateName || applicant.name },
+        data: { password, passwordSet: false, name: assessment.candidateName || applicant.name },
         req,
       })
     } else {
@@ -250,7 +252,7 @@ const createApplicantLogin = async (
           email,
           name: assessment.candidateName || undefined,
           password,
-          passwordSet: true,
+          passwordSet: false,
           timeLimitMinutes: assessment.durationMinutes || DEFAULT_TIME_LIMIT_MINUTES,
         },
         req,
@@ -264,7 +266,7 @@ const createApplicantLogin = async (
       req,
     })
 
-    await sendApplicantLoginCreated(req.payload, assessment, password)
+    await sendApplicantLoginCreated(req.payload, assessment)
   } catch (error) {
     req.payload.logger.warn({ err: error, msg: `Could not create applicant login for ${email}` })
   }
@@ -913,6 +915,19 @@ export const Assessments: CollectionConfig = {
         readOnly: true,
         condition: (data) => Boolean(data?.applicant),
         description: 'Set by picking an existing applicant in the Candidate email field above.',
+      },
+    },
+    {
+      name: 'applicantPasswordSet',
+      label: 'Candidate set their own password',
+      type: 'checkbox',
+      virtual: 'applicant.passwordSet',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        condition: (data) => Boolean(data?.applicant),
+        description:
+          'Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).',
       },
     },
     {

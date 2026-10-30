@@ -68,6 +68,9 @@ export default async function AssessmentPage({ params }: Args) {
       collection: 'assessments',
       id: assessment.id,
       data: { applicant: applicant.id },
+      // Without this, the relationship comes back populated (an object) instead of the id,
+      // breaking the `assessment.applicant !== applicant.id` check right below.
+      depth: 0,
     })
   }
 

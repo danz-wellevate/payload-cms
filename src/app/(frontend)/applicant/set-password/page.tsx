@@ -17,19 +17,21 @@ export default async function SetPasswordPage({ searchParams }: Args) {
 
   return (
     <section className="section">
-      <div className="container authPage">
-        <p className="eyebrow">Coding Exam</p>
-        <h1>Almost there</h1>
-        {token ? (
-          <>
-            <p className="lead">Choose a password so you can sign back in to your dashboard.</p>
-            <SetPasswordForm next={safeNext} token={token} />
-          </>
-        ) : (
-          <p className="lead">
-            This link is incomplete. <Link href="/applicant/login">Request a new one</Link>.
-          </p>
-        )}
+      <div className="container">
+        <div className="authPage">
+          <p className="eyebrow">Coding Exam</p>
+          <h1>Almost there</h1>
+          {token ? (
+            <>
+              <p className="lead">Choose a password so you can sign back in to your dashboard.</p>
+              <SetPasswordForm next={safeNext} token={token} />
+            </>
+          ) : (
+            <p className="lead">
+              This link is incomplete. <Link href="/applicant/login">Request a new one</Link>.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   )

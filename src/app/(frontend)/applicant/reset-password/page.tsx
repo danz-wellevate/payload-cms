@@ -18,19 +18,21 @@ export default async function ResetPasswordPage({ searchParams }: Args) {
 
   return (
     <section className="section">
-      <div className="container authPage">
-        <p className="eyebrow">Coding Exam</p>
-        <h1>Reset your password</h1>
-        {token ? (
-          <>
-            <p className="lead">Choose a new password to sign back in to your dashboard.</p>
-            <ResetPasswordForm next={safeNext} token={token} />
-          </>
-        ) : (
-          <p className="lead">
-            This link is incomplete. <Link href="/applicant/login">Request a new one</Link>.
-          </p>
-        )}
+      <div className="container">
+        <div className="authPage">
+          <p className="eyebrow">Coding Exam</p>
+          <h1>Reset your password</h1>
+          {token ? (
+            <>
+              <p className="lead">Choose a new password to sign back in to your dashboard.</p>
+              <ResetPasswordForm next={safeNext} token={token} />
+            </>
+          ) : (
+            <p className="lead">
+              This link is incomplete. <Link href="/applicant/login">Request a new one</Link>.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   )
