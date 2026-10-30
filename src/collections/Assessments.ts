@@ -83,9 +83,10 @@ const isCorrectOutput = (task: TaskRow, output: string) => {
   const caseSensitive = Boolean(task.caseSensitive)
   const actual = normalizeOutput(output, caseSensitive)
   if (!actual) return false
-  return (task.acceptedAnswers ?? []).some(
-    (row) => row.answer && normalizeOutput(row.answer, caseSensitive) === actual,
-  )
+  const accepted = (task.acceptedAnswers ?? []).filter((row) => row.answer?.trim())
+  // No expected output set: any output from code that ran is accepted (the admin reviews it).
+  if (accepted.length === 0) return true
+  return accepted.some((row) => normalizeOutput(row.answer ?? '', caseSensitive) === actual)
 }
 
 // What the candidate is allowed to see: only the tasks up to (and including) the current one.
@@ -153,15 +154,15 @@ const syncSavedQuestions = async ({
   const rows = data?.tasks
   if (!Array.isArray(rows)) return data
 
-  const before = new Map<unknown, TaskRow>(
-    ((originalDoc?.tasks ?? []) as TaskRow[]).map((row) => [row.id, row]),
-  )
+  const originalRows = (originalDoc?.tasks ?? []) as TaskRow[]
+  const before = new Map<unknown, TaskRow>(originalRows.map((row) => [row.id, row]))
 
-  for (const row of rows as TaskRow[]) {
+  for (const [index, row] of (rows as TaskRow[]).entries()) {
     const savedId = idOf(row.savedQuestion)
     if (savedId == null || savedId === '') continue
 
-    const prior = row.id ? before.get(row.id) : undefined
+    // Match the row by id; fall back to its position if the id isn't carried over.
+    const prior = (row.id ? before.get(row.id) : undefined) ?? originalRows[index]
     if (prior && String(idOf(prior.savedQuestion)) === String(savedId) && hasRichText(row.prompt)) {
       continue
     }
@@ -185,6 +186,73 @@ const syncSavedQuestions = async ({
     }
   }
   return data
+}
+
+// What a task "says", used to tell whether an edit was made to it.
+const taskFingerprint = (row: TaskRow) =>
+  JSON.stringify({
+    title: row.title ?? '',
+    prompt: row.prompt ?? null,
+    testInput: row.testInput || null,
+    caseSensitive: Boolean(row.caseSensitive),
+    answers: (row.acceptedAnswers ?? []).map((item) => item.answer ?? ''),
+  })
+
+// When a task that uses a saved question is edited and the assessment is saved, push those edits
+// back into the saved question too. Only rows that already pointed at the same saved question
+// and really changed are pushed; a freshly picked question is just copied in (see above), so a
+// stale assessment can't overwrite a library entry by accident.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pushEditsToSavedQuestions = async ({
+  doc,
+  previousDoc,
+  req,
+}: {
+  doc?: any
+  previousDoc?: any
+  req: PayloadRequest
+}) => {
+  const rows = (doc?.tasks ?? []) as TaskRow[]
+  if (rows.length === 0) return doc
+
+  const previousRows = (previousDoc?.tasks ?? []) as TaskRow[]
+  const before = new Map<unknown, TaskRow>(previousRows.map((row) => [row.id, row]))
+
+  for (const [index, row] of rows.entries()) {
+    const savedId = idOf(row.savedQuestion)
+    if (savedId == null || savedId === '') continue
+
+    // Match the row by id; fall back to its position if the id isn't carried over.
+    const prior = (row.id ? before.get(row.id) : undefined) ?? previousRows[index]
+    req.payload.logger.info(
+      `Saved-question check: task ${index + 1} uses saved question ${savedId}; previous version ${
+        prior
+          ? `found, edited: ${taskFingerprint(prior) !== taskFingerprint(row)}`
+          : 'NOT found (nothing to compare)'
+      }`,
+    )
+    if (!prior || String(idOf(prior.savedQuestion)) !== String(savedId)) continue
+    if (taskFingerprint(prior) === taskFingerprint(row)) continue
+
+    try {
+      await req.payload.update({
+        collection: 'saved-questions' as never,
+        id: savedId as never,
+        data: {
+          ...(row.title ? { name: row.title } : {}),
+          prompt: row.prompt,
+          testInput: row.testInput || null,
+          caseSensitive: Boolean(row.caseSensitive),
+          acceptedAnswers: (row.acceptedAnswers ?? []).map((item) => ({ answer: item.answer })),
+        } as never,
+        req,
+      })
+      req.payload.logger.info(`Updated saved question ${savedId} from edits made in an assessment`)
+    } catch (error) {
+      req.payload.logger.warn({ err: error, msg: `Could not update saved question ${savedId}` })
+    }
+  }
+  return doc
 }
 
 // Typed loosely on purpose: until `payload generate:types` is re-run, payload-types.ts doesn't
@@ -325,12 +393,12 @@ export const Assessments: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [syncSavedQuestions],
-    // The password typed into "Candidate login password" is kept on the assessment (see the
-    // field below) so an admin can come back and read it later to send manually — SMTP delivery
-    // isn't reliable enough yet to assume the candidate ever got the automatic email.
+    // The password typed into "Candidate login password" is only ever used to create the
+    // login below; it's never written to the assessments table.
     beforeChange: [
       ({ data, req, originalDoc }) => {
         if (data?.applicantPassword) req.context.applicantPassword = data.applicantPassword
+        if (data) delete data.applicantPassword
 
         // "Reset assessment" puts the status back to "invited" — also restart the task
         // progression so the candidate begins again at task 1.
@@ -345,6 +413,8 @@ export const Assessments: CollectionConfig = {
     // Hiring workflow: keeps the linked application in step, and sends the Head of Plus the
     // monitoring report when the candidate finishes.
     afterChange: [
+      // Edits made to a task that uses a saved question are written back to that question.
+      pushEditsToSavedQuestions,
       // Created directly here (not by the hiring pipeline, which sets this context flag
       // because it sends its own "technical assessment scheduled" email instead). Skipped when
       // a password was typed into "Candidate login password" too — that case gets only the
@@ -540,7 +610,8 @@ export const Assessments: CollectionConfig = {
         let output = ''
         try {
           const result = await runCode({ languageId: language.id, sourceCode: code, stdin })
-          output = result.stdout ?? ''
+          // A compile error never counts, even if some text was printed.
+          output = result.compileOutput ? '' : (result.stdout ?? '')
         } catch {
           return Response.json(
             { error: 'The code runner is unavailable right now. Please try again.' },
@@ -633,7 +704,18 @@ export const Assessments: CollectionConfig = {
                   relationTo: 'saved-questions' as never,
                   admin: {
                     description:
-                      'Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty.',
+                      'Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty — they fill in when you save. If you later edit them here and save, the saved question is updated too.',
+                  },
+                },
+                {
+                  // Shows the picked saved question straight away (the fields below are filled
+                  // in from it when the assessment is saved).
+                  name: 'savedQuestionPreview',
+                  type: 'ui',
+                  admin: {
+                    components: {
+                      Field: '/components/admin/SavedQuestionPreview#SavedQuestionPreview',
+                    },
                   },
                 },
                 {
@@ -662,17 +744,12 @@ export const Assessments: CollectionConfig = {
                 },
                 {
                   name: 'acceptedAnswers',
-                  label: 'Expected output',
+                  label: 'Expected output (optional)',
                   type: 'array',
-                  // At least one, unless a saved question will supply it.
-                  validate: ((value: unknown, { siblingData }: { siblingData?: TaskRow }) =>
-                    (Array.isArray(value) && value.length > 0) || siblingData?.savedQuestion
-                      ? true
-                      : 'Add at least one expected output, or pick a saved question.') as never,
                   labels: { singular: 'Accepted output', plural: 'Accepted outputs' },
                   admin: {
                     description:
-                      "The candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Never shown to the candidate.",
+                      "Optional. If set, the candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Leave empty to accept any answer that runs without errors and prints something — you review it yourself under Submission → Solved tasks. Never shown to the candidate.",
                   },
                   fields: [{ name: 'answer', label: 'Output', type: 'textarea', required: true }],
                 },
@@ -925,10 +1002,7 @@ export const Assessments: CollectionConfig = {
         `Use at least ${MIN_PASSWORD_LENGTH} characters, or leave this blank.`,
       admin: {
         position: 'sidebar',
-        // No `condition` here on purpose: the field must stay mounted after the login is
-        // created (applicant gets set) so ApplicantPasswordField can keep showing the stored
-        // password for the admin to copy and send manually — it decides for itself whether to
-        // render the editable form or the read-only reveal.
+        condition: (data) => !data?.applicant,
         components: { Field: '/components/admin/ApplicantPasswordField#ApplicantPasswordField' },
       },
     },
