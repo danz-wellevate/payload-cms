@@ -49,9 +49,13 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
     const row = (getData() as { tasks?: Record<string, any>[] }).tasks?.[index]
     if (!row) return
 
-    const answers: string[] = (row.acceptedAnswers ?? [])
-      .map((item: { answer?: string }) => item?.answer)
-      .filter(Boolean)
+    const acceptedAnswers = row.acceptedAnswers
+    const acceptedAnswersList: { answer?: string }[] = Array.isArray(acceptedAnswers)
+      ? acceptedAnswers
+      : acceptedAnswers
+        ? Object.values(acceptedAnswers)
+        : []
+    const answers: string[] = acceptedAnswersList.map((item) => item?.answer).filter(Boolean)
 
     if (!hasRichText(row.prompt)) {
       toast.error('Write the question first.')
