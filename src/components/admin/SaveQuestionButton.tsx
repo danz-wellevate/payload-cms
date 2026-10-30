@@ -1,6 +1,6 @@
 'use client'
 
-import { toast, useForm, useFormFields } from '@payloadcms/ui'
+import { toast, useForm } from '@payloadcms/ui'
 import React, { useState } from 'react'
 
 import { withBase } from '@/lib/basePath'
@@ -13,41 +13,23 @@ const hasRichText = (value: unknown) => {
   return children.some((node) => node.type !== 'paragraph' || (node.children?.length ?? 0) > 0)
 }
 
-// Bookmark shown at the bottom of each task.
-//  - Task typed by hand: saves it into Saved Questions so it can be reused in other assessments.
-//  - Task that uses a saved question: pushes the edits made here back into that saved question.
+// Bookmark shown at the bottom of each task. Clicking it saves the task's question, expected
+// output and test input into Saved Questions so it can be reused in other assessments.
 export const SaveQuestionButton = ({ path }: { path: string }) => {
   const { getData } = useForm()
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
 
-  // path looks like "tasks.0.saveQuestion"
-  const segments = path.split('.')
-  const rowPath = segments.slice(0, -1).join('.')
-  const index = Number(segments[segments.length - 2])
-
-  // Reactive: switches the button between "save" and "update" as the picker changes.
-  const linked = useFormFields(([fields]) => fields[`${rowPath}.savedQuestion`]?.value) as
-    | number
-    | string
-    | { id: number | string }
-    | null
-    | undefined
-  const savedId = linked && typeof linked === 'object' ? linked.id : linked
-  const isUpdate = savedId != null && savedId !== ''
-
-  const send = async (method: 'POST' | 'PATCH', url: string, body: unknown) => {
-    const res = await fetch(withBase(url), {
-      method,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) throw new Error()
-  }
-
   const save = async () => {
+    // path looks like "tasks.0.saveQuestion"
+    const segments = path.split('.')
+    const index = Number(segments[segments.length - 2])
     const row = (getData() as { tasks?: Record<string, any>[] }).tasks?.[index]
     if (!row) return
+
+    if (row.savedQuestion) {
+      toast.info('This task already comes from a saved question.')
+      return
+    }
 
     const acceptedAnswers = row.acceptedAnswers
     const acceptedAnswersList: { answer?: string }[] = Array.isArray(acceptedAnswers)
@@ -55,38 +37,11 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
       : acceptedAnswers
         ? Object.values(acceptedAnswers)
         : []
-    const answers: string[] = acceptedAnswersList.map((item) => item?.answer).filter(Boolean)
-
-    if (!hasRichText(row.prompt)) {
-      toast.error('Write the question first.')
-      return
-    }
-
-    const content = {
-      prompt: row.prompt,
-      testInput: row.testInput || null,
-      caseSensitive: Boolean(row.caseSensitive),
-      acceptedAnswers: answers.map((answer) => ({ answer })),
-    }
-
-    if (isUpdate) {
-      const ok = window.confirm(
-        'Update the saved question now with the changes made here?\n\n(Saving the assessment also does this.) Assessments that already used it keep their own copy.',
-      )
-      if (!ok) return
-
-      setState('saving')
-      try {
-        await send('PATCH', `/api/saved-questions/${savedId}`, {
-          ...content,
-          ...(row.title ? { name: row.title } : {}),
-        })
-        setState('saved')
-        toast.success('Saved question updated.')
-      } catch {
-        setState('idle')
-        toast.error('Could not update the saved question. Please try again.')
-      }
+    const answers: string[] = acceptedAnswersList
+      .map((item) => item?.answer)
+      .filter(Boolean)
+    if (!hasRichText(row.prompt) || answers.length === 0) {
+      toast.error('Add the question and at least one expected output first.')
       return
     }
 
@@ -95,7 +50,19 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
 
     setState('saving')
     try {
-      await send('POST', '/api/saved-questions', { name, ...content })
+      const res = await fetch(withBase('/api/saved-questions'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          prompt: row.prompt,
+          testInput: row.testInput || undefined,
+          caseSensitive: Boolean(row.caseSensitive),
+          acceptedAnswers: answers.map((answer) => ({ answer })),
+        }),
+      })
+      if (!res.ok) throw new Error()
       setState('saved')
       toast.success(`Saved “${name}” to Saved Questions.`)
     } catch {
@@ -105,20 +72,9 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
   }
 
   const saved = state === 'saved'
-  const label =
-    state === 'saving'
-      ? 'Saving…'
-      : saved
-        ? isUpdate
-          ? 'Saved question updated'
-          : 'Saved to Saved Questions'
-        : isUpdate
-          ? 'Update saved question'
-          : 'Save to Saved Questions'
-
   return (
     <button
-      aria-label={isUpdate ? 'Update the saved question' : 'Save this task to Saved Questions'}
+      aria-label="Save this task to Saved Questions"
       disabled={state === 'saving'}
       onClick={save}
       style={{
@@ -131,11 +87,11 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
         gap: '0.5rem',
         padding: 0,
       }}
-      title={isUpdate ? 'Update the saved question' : 'Save to Saved Questions'}
+      title="Save to Saved Questions"
       type="button"
     >
       <svg
-        fill={saved || isUpdate ? 'currentColor' : 'none'}
+        fill={saved ? 'currentColor' : 'none'}
         height="22"
         stroke="currentColor"
         strokeLinejoin="round"
@@ -145,7 +101,13 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
       >
         <path d="M6 2h12a1 1 0 0 1 1 1v19l-7-4-7 4V3a1 1 0 0 1 1-1z" />
       </svg>
-      <span>{label}</span>
+      <span>
+        {state === 'saving'
+          ? 'Saving…'
+          : saved
+            ? 'Saved to Saved Questions'
+            : 'Save to Saved Questions'}
+      </span>
     </button>
   )
 }
