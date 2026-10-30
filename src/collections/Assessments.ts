@@ -325,12 +325,12 @@ export const Assessments: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [syncSavedQuestions],
-    // The password typed into "Candidate login password" is only ever used to create the
-    // login below; it's never written to the assessments table.
+    // The password typed into "Candidate login password" is kept on the assessment (see the
+    // field below) so an admin can come back and read it later to send manually — SMTP delivery
+    // isn't reliable enough yet to assume the candidate ever got the automatic email.
     beforeChange: [
       ({ data, req, originalDoc }) => {
         if (data?.applicantPassword) req.context.applicantPassword = data.applicantPassword
-        if (data) delete data.applicantPassword
 
         // "Reset assessment" puts the status back to "invited" — also restart the task
         // progression so the candidate begins again at task 1.
@@ -925,7 +925,10 @@ export const Assessments: CollectionConfig = {
         `Use at least ${MIN_PASSWORD_LENGTH} characters, or leave this blank.`,
       admin: {
         position: 'sidebar',
-        condition: (data) => !data?.applicant,
+        // No `condition` here on purpose: the field must stay mounted after the login is
+        // created (applicant gets set) so ApplicantPasswordField can keep showing the stored
+        // password for the admin to copy and send manually — it decides for itself whether to
+        // render the editable form or the read-only reveal.
         components: { Field: '/components/admin/ApplicantPasswordField#ApplicantPasswordField' },
       },
     },

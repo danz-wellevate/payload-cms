@@ -30,7 +30,7 @@ export const assessmentInviteLink = (token: string) =>
 // A coding assessment was created directly in the Assessments collection (not via the hiring
 // pipeline, which emails its own "book your interview" / "technical assessment scheduled"
 // messages instead — see sendAssessmentScheduled below).
-export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =>
+export const sendAssessmentInvite = async (payload: Payload, assessment: Assessment) =>
   send(
     payload,
     assessment.candidateEmail,
@@ -44,12 +44,18 @@ export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =
         ? `Please complete it before <strong>${escapeHtml(formatDateTime(assessment.expiresAt))}</strong>.`
         : 'Start it whenever you are ready.',
       button(assessmentInviteLink(assessment.token ?? ''), 'Start the assessment'),
+      'You can also set up your account in the applicant portal, where this assessment and any others will show up:',
+      button(await applicantPortalLink(payload, assessment.candidateEmail), 'Go to the applicant portal'),
     ]),
   )
 
 // An admin set up a login directly on the assessment ("Candidate login password") instead of
 // the candidate signing up themselves: emails them the password so they can sign in right away.
-export const sendApplicantLoginCreated = (payload: Payload, assessment: Assessment, password: string) => {
+export const sendApplicantLoginCreated = async (
+  payload: Payload,
+  assessment: Assessment,
+  password: string,
+) => {
   const link = assessmentInviteLink(assessment.token ?? '')
   return send(
     payload,
@@ -60,6 +66,8 @@ export const sendApplicantLoginCreated = (payload: Payload, assessment: Assessme
       'An account was created for you so you can go straight to your coding assessment.',
       `Email: <strong>${escapeHtml(assessment.candidateEmail)}</strong><br/>Password: <strong>${escapeHtml(password)}</strong>`,
       button(link, 'Sign in and start the assessment'),
+      'Or sign in anytime through the applicant portal with the same email and password:',
+      button(await applicantPortalLink(payload, assessment.candidateEmail), 'Go to the applicant portal'),
     ]),
   )
 }
@@ -93,15 +101,15 @@ const applicantPortalLink = async (payload: Payload, email: string) => {
   return `${siteUrl()}/applicant/login?email=${encodeURIComponent(email)}`
 }
 
-// Email failures are logged but never block saving the application.
+// Fires the SMTP send in the background instead of awaiting it, so saving the application
+// (or whatever triggered the email) doesn't block on the connection handshake + delivery.
+// Failures are logged but never surface to the caller.
 const send = async (payload: Payload, to: string | string[], subject: string, html: string) => {
   const recipients = Array.isArray(to) ? to : [to]
   if (!recipients.length) return
-  try {
-    await payload.sendEmail({ to: recipients.join(', '), subject, html })
-  } catch (err) {
+  payload.sendEmail({ to: recipients.join(', '), subject, html }).catch((err) => {
     payload.logger.error({ err, msg: `Could not send "${subject}" to ${recipients.join(', ')}` })
-  }
+  })
 }
 
 // Users with the Head of Plus role; every admin when nobody has it yet.
