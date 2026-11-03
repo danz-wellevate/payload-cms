@@ -31,6 +31,11 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
       return
     }
 
+    if (!hasRichText(row.prompt)) {
+      toast.error('Write the question first.')
+      return
+    }
+
     const acceptedAnswers = row.acceptedAnswers
     const acceptedAnswersList: { answer?: string }[] = Array.isArray(acceptedAnswers)
       ? acceptedAnswers
@@ -39,11 +44,7 @@ export const SaveQuestionButton = ({ path }: { path: string }) => {
         : []
     const answers: string[] = acceptedAnswersList
       .map((item) => item?.answer)
-      .filter(Boolean)
-    if (!hasRichText(row.prompt) || answers.length === 0) {
-      toast.error('Add the question and at least one expected output first.')
-      return
-    }
+      .filter((answer): answer is string => Boolean(answer))
 
     const name = window.prompt('Name for this saved question', row.title || '')?.trim()
     if (!name) return

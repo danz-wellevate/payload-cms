@@ -68,27 +68,6 @@ const ANSWER_GRACE_MS = 30_000
 const MAX_CODE_LENGTH = 64 * 1024
 const MAX_STDIN_LENGTH = 16 * 1024
 
-// Compares program output: line endings and trailing spaces/blank lines are ignored.
-const normalizeOutput = (value: string, caseSensitive: boolean) => {
-  const cleaned = value
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trim()
-  return caseSensitive ? cleaned : cleaned.toLowerCase()
-}
-
-const isCorrectOutput = (task: TaskRow, output: string) => {
-  const caseSensitive = Boolean(task.caseSensitive)
-  const actual = normalizeOutput(output, caseSensitive)
-  if (!actual) return false
-  const accepted = (task.acceptedAnswers ?? []).filter((row) => row.answer?.trim())
-  // No expected output set: any output from code that ran is accepted (the admin reviews it).
-  if (accepted.length === 0) return true
-  return accepted.some((row) => normalizeOutput(row.answer ?? '', caseSensitive) === actual)
-}
-
 // What the candidate is allowed to see: only the tasks up to (and including) the current one.
 const publicTaskState = (assessment: TaskAssessment) => {
   const tasks = assessment.tasks ?? []
@@ -609,11 +588,9 @@ export const Assessments: CollectionConfig = {
             ? body.stdin.slice(0, MAX_STDIN_LENGTH)
             : ''
 
-        let output = ''
+        let result
         try {
-          const result = await runCode({ languageId: language.id, sourceCode: code, stdin })
-          // A compile error never counts, even if some text was printed.
-          output = result.compileOutput ? '' : (result.stdout ?? '')
+          result = await runCode({ languageId: language.id, sourceCode: code, stdin })
         } catch {
           return Response.json(
             { error: 'The code runner is unavailable right now. Please try again.' },
@@ -621,12 +598,21 @@ export const Assessments: CollectionConfig = {
           )
         }
 
-        if (!isCorrectOutput(task, output)) {
+        // The task advances as long as the code runs cleanly — a mismatch with the expected
+        // output no longer blocks progress (reviewers compare the saved output themselves). Only
+        // a compile error, runtime error or timeout keeps the candidate on the current task.
+        // Judge0 status 3 = Accepted (ran to completion, exit 0, no compile/runtime error).
+        if (result.status.id !== 3) {
           await updateAssessment(req, assessment.id, {
             wrongAnswers: (assessment.wrongAnswers ?? 0) + 1,
           })
-          return Response.json({ correct: false })
+          return Response.json({
+            correct: false,
+            error: `Your code didn't run successfully (${result.status.description}). Fix the errors and run it again — your time keeps running.`,
+          })
         }
+
+        const output = result.stdout ?? ''
 
         // Keep this task's code and output so the admin can review every task, not just the
         // code that happens to be in the editor at the end.

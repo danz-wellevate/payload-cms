@@ -26,6 +26,11 @@ COPY . .
 # Baked in at build time.
 ARG NEXT_PUBLIC_BASE_PATH=/plus_tech_exam
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
+# Used to build the links in emails (assessment invites, set-password, etc.). Defaulted (like
+# NEXT_PUBLIC_BASE_PATH above) so a build that forgets to pass it still bakes the production URL
+# rather than an empty value that would override .env.production and fall back to localhost.
+ARG NEXT_PUBLIC_SERVER_URL=https://apps.well-evate.com/plus_tech_exam
+ENV NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
 # Real secrets are injected at runtime; the build only needs these to exist.
 ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 ENV PAYLOAD_SECRET=build-placeholder
