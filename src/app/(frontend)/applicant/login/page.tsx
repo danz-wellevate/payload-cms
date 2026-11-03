@@ -22,11 +22,13 @@ export default async function ApplicantLoginPage({ searchParams }: Args) {
 
   return (
     <section className="section">
-      <div className="container authPage">
-        <p className="eyebrow">Coding Exam</p>
-        <h1>Applicant portal</h1>
-        <p className="lead">Sign in to take your coding exam and see your results.</p>
-        <LoginForm initialEmail={isValidEmail(email) ? email : undefined} next={next} />
+      <div className="container">
+        <div className="authPage">
+          <p className="eyebrow">Coding Exam</p>
+          <h1>Applicant portal</h1>
+          <p className="lead">Sign in to take your coding exam and see your results.</p>
+          <LoginForm initialEmail={isValidEmail(email) ? email : undefined} next={next} />
+        </div>
       </div>
     </section>
   )

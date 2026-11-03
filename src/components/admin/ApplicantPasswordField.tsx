@@ -38,7 +38,7 @@ export const ApplicantPasswordField = () => {
   const prevApplicant = React.useRef(applicant)
   useEffect(() => {
     if (!prevApplicant.current && applicant && value) {
-      toast.success('Candidate login created. The password stays here if you need to send it manually.')
+      toast.success('Candidate login created. They were emailed a link to set their own password.')
     }
     prevApplicant.current = applicant
   }, [applicant, value])
@@ -75,8 +75,10 @@ export const ApplicantPasswordField = () => {
           </Button>
         </div>
         <p style={{ color: 'var(--theme-elevation-500)', fontSize: 13, margin: '6px 0 0' }}>
-          Login already created. Email delivery can be delayed right now — send this to the
-          candidate directly along with the invite link above.
+          This is the initial password you set — a master key, not the candidate&apos;s own. They
+          were emailed a link to set their own password; check{' '}
+          <strong>Candidate set their own password</strong> above. Email delivery can be delayed
+          right now, so send this one manually too as a backup they can sign in with meanwhile.
         </p>
       </div>
     )
@@ -120,10 +122,9 @@ export const ApplicantPasswordField = () => {
         </Button>
       </div>
       <p style={{ color: 'var(--theme-elevation-500)', fontSize: 13, margin: '6px 0 0' }}>
-        Optional. Set this and save to create the candidate&apos;s login — this password and the
-        invite link are emailed to them automatically, so they can sign in and go straight to the
-        exam, skipping the usual sign-up email. It stays visible here afterward too, in case you
-        need to send it manually.
+        Optional. Set this and save to create the candidate&apos;s login as a master key — they&apos;ll
+        be emailed a link to set their own password instead of this one, same as a self-registering
+        candidate gets. It stays visible here afterward too, in case you need to send it manually.
       </p>
     </div>
   )

@@ -30,44 +30,49 @@ export const assessmentInviteLink = (token: string) =>
 // A coding assessment was created directly in the Assessments collection (not via the hiring
 // pipeline, which emails its own "book your interview" / "technical assessment scheduled"
 // messages instead — see sendAssessmentScheduled below).
-export const sendAssessmentInvite = async (payload: Payload, assessment: Assessment) =>
+// The button below goes straight to the assessment link; if the candidate hasn't registered
+// yet, the page itself detects that and sends them to set their name and password first (see
+// AssessmentPage), then on to the exam — so one link covers both pre-registration and the exam,
+// no separate "portal" link needed.
+export const sendAssessmentInvite = (payload: Payload, assessment: Assessment) =>
   send(
     payload,
     assessment.candidateEmail,
     'Your coding assessment is ready',
     layout([
       `Hi ${escapeHtml(assessment.candidateName?.trim() || 'there')},`,
+      `This invite was sent to <strong>${escapeHtml(assessment.candidateEmail)}</strong>.`,
       `You have been invited to a coding assessment${
         assessment.durationMinutes ? ` (${assessment.durationMinutes} minutes)` : ''
       }.`,
       assessment.expiresAt
         ? `Please complete it before <strong>${escapeHtml(formatDateTime(assessment.expiresAt))}</strong>.`
         : 'Start it whenever you are ready.',
-      button(assessmentInviteLink(assessment.token ?? ''), 'Start the assessment'),
-      'You can also set up your account in the applicant portal, where this assessment and any others will show up:',
-      button(await applicantPortalLink(payload, assessment.candidateEmail), 'Go to the applicant portal'),
+      "You'll be asked to set a name and password the first time — that's it, then you're straight into the exam.",
+      button(assessmentInviteLink(assessment.token ?? ''), 'Register and start the assessment'),
     ]),
   )
 
 // An admin set up a login directly on the assessment ("Candidate login password") instead of
-// the candidate signing up themselves: emails them the password so they can sign in right away.
-export const sendApplicantLoginCreated = async (
-  payload: Payload,
-  assessment: Assessment,
-  password: string,
-) => {
-  const link = assessmentInviteLink(assessment.token ?? '')
+// the candidate signing up themselves. That password is a master key for the admin, not the
+// candidate's own, so this doesn't tell them to sign in with it (and never includes it in
+// plaintext) — it sends them a one-time link to set their own password instead, same as a
+// self-registering candidate gets. Once they do, `applicantPasswordSet` shows it in the admin.
+export const sendApplicantLoginCreated = async (payload: Payload, assessment: Assessment) => {
+  const link = await applicantPortalLink(
+    payload,
+    assessment.candidateEmail,
+    `/assessment/${assessment.token ?? ''}`,
+  )
   return send(
     payload,
     assessment.candidateEmail,
     'Your login for the coding assessment',
     layout([
       `Hi ${escapeHtml(assessment.candidateName?.trim() || 'there')},`,
-      'An account was created for you so you can go straight to your coding assessment.',
-      `Email: <strong>${escapeHtml(assessment.candidateEmail)}</strong><br/>Password: <strong>${escapeHtml(password)}</strong>`,
-      button(link, 'Sign in and start the assessment'),
-      'Or sign in anytime through the applicant portal with the same email and password:',
-      button(await applicantPortalLink(payload, assessment.candidateEmail), 'Go to the applicant portal'),
+      'An account was created for you. Set your password to go straight to your coding assessment.',
+      `This invite was sent to <strong>${escapeHtml(assessment.candidateEmail)}</strong>.`,
+      button(link, 'Set your password and start'),
     ]),
   )
 }
@@ -77,7 +82,7 @@ export const sendApplicantLoginCreated = async (
 // instead of the login page's "enter your email" step. Once they've registered, this falls
 // back to the login page, pre-filled with their email so it skips straight to the password
 // field instead of asking for the email again.
-const applicantPortalLink = async (payload: Payload, email: string) => {
+const applicantPortalLink = async (payload: Payload, email: string, next?: string) => {
   const { docs } = await payload.find({
     collection: 'applicants',
     where: { email: { equals: email } },
@@ -93,7 +98,10 @@ const applicantPortalLink = async (payload: Payload, email: string) => {
         data: { email },
         disableEmail: true,
       })
-      if (token) return setPasswordLink(token)
+      if (token) {
+        const link = setPasswordLink(token)
+        return next ? `${link}&next=${encodeURIComponent(next)}` : link
+      }
     } catch (err) {
       payload.logger.warn({ err, msg: `Could not create a set-password link for ${email}` })
     }
