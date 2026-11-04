@@ -31,7 +31,7 @@ export const SetPasswordForm = ({ next = '/applicant', token }: { next?: string;
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.')
-      window.location.assign(next)
+      window.location.assign(withBase(next))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
       setBusy(false)
