@@ -48,5 +48,7 @@ export const TaskRowLabel = () => {
   }, [key])
 
   const number = String((rowNumber ?? 0) + 1).padStart(2, '0')
-  return <span>{savedName || data?.title || `Task ${number}`}</span>
+  // Title first, so renaming a task here shows right away; the saved question's name is used
+  // until the title is filled in (e.g. just after picking one).
+  return <span>{data?.title || savedName || `Task ${number}`}</span>
 }

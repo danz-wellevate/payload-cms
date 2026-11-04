@@ -513,7 +513,7 @@ export interface Assessment {
   tasks?:
     | {
         /**
-         * Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty.
+         * Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty — they fill in when you save. If you later edit them here and save, the saved question is updated too.
          */
         savedQuestion?: (number | null) | SavedQuestion;
         /**
@@ -540,7 +540,7 @@ export interface Assessment {
          */
         testInput?: string | null;
         /**
-         * The candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Never shown to the candidate.
+         * Optional. If set, the candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Leave empty to accept any answer that runs without errors and prints something — you review it yourself under Submission → Solved tasks. Never shown to the candidate.
          */
         acceptedAnswers?:
           | {
@@ -618,6 +618,10 @@ export interface Assessment {
    * Set by picking an existing applicant in the Candidate email field above.
    */
   applicant?: (number | null) | Applicant;
+  /**
+   * Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).
+   */
+  applicantPasswordSet?: boolean | null;
   applicantPassword?: string | null;
   /**
    * Use "Reset assessment" above to let the candidate retake the test.
@@ -675,12 +679,14 @@ export interface SavedQuestion {
    */
   testInput?: string | null;
   /**
-   * The candidate passes when their program's output matches ANY of these. Never shown to the candidate.
+   * Optional. If set, the candidate passes when their program's output matches ANY of these. Leave empty to accept any answer that runs without errors and prints something. Never shown to the candidate.
    */
-  acceptedAnswers: {
-    answer: string;
-    id?: string | null;
-  }[];
+  acceptedAnswers?:
+    | {
+        answer: string;
+        id?: string | null;
+      }[]
+    | null;
   caseSensitive?: boolean | null;
   updatedAt: string;
   createdAt: string;
@@ -1341,6 +1347,7 @@ export interface AssessmentsSelect<T extends boolean = true> {
   feedback?: T;
   result?: T;
   applicant?: T;
+  applicantPasswordSet?: T;
   applicantPassword?: T;
   status?: T;
   token?: T;

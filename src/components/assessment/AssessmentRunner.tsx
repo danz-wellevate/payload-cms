@@ -64,7 +64,7 @@ type TaskState = {
   finished: boolean
   tasks: { title: string; prompt: unknown }[]
 }
-type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
+type AnswerStatus = 'idle' | 'checking' | 'correct' | 'error'
 
 const screenShareMessages: Partial<Record<ScreenShare, string>> = {
   denied:
@@ -95,9 +95,6 @@ const formatRemaining = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
-// The instructions panel for multi-task assessments: shows the current task and the result of
-// the last check. The "Done / Submit" button in the top bar does the checking; the next task only
-// appears once the program's output matches.
 const TaskPanel = ({
   state,
   status,
@@ -107,45 +104,29 @@ const TaskPanel = ({
   status: AnswerStatus
   message: string | null
 }) => {
-  const solved = state.tasks.slice(0, state.current)
-  const active = state.finished ? null : state.tasks[state.current]
+  const task = state.tasks[state.current] ?? state.tasks[state.tasks.length - 1]
   const isLast = state.current + 1 >= state.total
+
+  if (!task) return null
 
   return (
     <div className="taskPanel">
-      <p className="eyebrow">
-        {state.finished
-          ? `All ${state.total} tasks complete`
-          : `Task ${state.current + 1} of ${state.total}`}
-      </p>
+      <span className="eyebrow">
+        Task {state.current + 1} of {state.total}
+      </span>
 
-      {solved.map((task, index) => (
-        <details key={index} style={{ marginBottom: '0.75rem' }}>
-          <summary>
-            ✓ {task.title} <span className="muted">(solved)</span>
-          </summary>
-          <RichText data={task.prompt as never} />
-        </details>
-      ))}
+      <h2>{task.title}</h2>
+      <RichText data={task.prompt as never} />
 
-      {active && (
+      {!state.finished && (
         <>
-          <h2>{active.title}</h2>
-          <RichText data={active.prompt as never} />
-
           <p className="muted" style={{ marginTop: '1rem' }}>
-            Write your code and run it. When your program prints the expected output, press
-            &ldquo;Done / Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
+            Write your code and run it. Once it runs without errors, press &ldquo;Done /
+            Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
           </p>
           {status === 'checking' && (
             <p className="muted" role="status">
-              Checking your output…
-            </p>
-          )}
-          {status === 'wrong' && (
-            <p className="assessmentError" role="alert">
-              Your output doesn&apos;t match the expected output yet. Run your code, check the
-              result and try again — your time keeps running.
+              Running your code…
             </p>
           )}
           {status === 'error' && message && (
@@ -155,14 +136,14 @@ const TaskPanel = ({
           )}
           {status === 'correct' && (
             <p className="muted" role="status">
-              Correct! Moving on to the next task.
+              Moving on to the next task.
             </p>
           )}
         </>
       )}
 
       {state.finished && (
-        <p className="lead">
+        <p className="lead" style={{ marginTop: '1rem' }}>
           Every task is complete. Press &ldquo;Done / Submit&rdquo; to hand in your code.
         </p>
       )}
@@ -211,6 +192,7 @@ export const AssessmentRunner = ({
   const [answerStatus, setAnswerStatus] = useState<AnswerStatus>('idle')
   const [answerMessage, setAnswerMessage] = useState<string | null>(null)
   const [tasksFailed, setTasksFailed] = useState(false)
+  const prevTaskRef = useRef(-1)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -469,9 +451,19 @@ export const AssessmentRunner = ({
     }
   }, [phase, taskApi])
 
-  // Sends the current code to the server, which re-runs it and compares the output with the
-  // task's expected output. Resolves to true only when that was the LAST task and it is now
-  // solved. The countdown is untouched, so all tasks share the same time limit.
+  // Clear the editor when the candidate advances to a new task.
+  useEffect(() => {
+    if (!taskState) return
+    if (prevTaskRef.current >= 0 && taskState.current > prevTaskRef.current) {
+      editorRef.current?.setValue('')
+    }
+    prevTaskRef.current = taskState.current
+  }, [taskState])
+
+  // Sends the current code to the server, which re-runs it and advances when it runs without
+  // errors (the expected output is no longer required to match). Resolves to true only when that
+  // was the LAST task and it is now done. The countdown is untouched, so all tasks share the
+  // same time limit.
   const checkTask = async (): Promise<boolean> => {
     if (!taskState || taskState.finished || answerStatus === 'checking') return false
     setAnswerStatus('checking')
@@ -500,7 +492,12 @@ export const AssessmentRunner = ({
         setAnswerStatus('correct')
         return Boolean(data.state?.finished)
       }
-      setAnswerStatus('wrong')
+      // A mismatch no longer blocks — the only reason the server rejects an answer now is that
+      // the code didn't run cleanly (compile/runtime error or timeout), so show that reason.
+      setAnswerStatus('error')
+      setAnswerMessage(
+        data.error ?? "Your code didn't run successfully. Fix the errors and run it again.",
+      )
       return false
     } catch {
       setAnswerStatus('error')
@@ -526,8 +523,10 @@ export const AssessmentRunner = ({
 
     try {
       const res = await fetch(`${base}/start`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Could not start the test.')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data) {
+        throw new Error(data?.error ?? 'Could not start the test. Please try again.')
+      }
 
       setDeadline(data.deadline)
       setResume({ code: data.code, languageId: data.languageId })
@@ -742,9 +741,9 @@ export const AssessmentRunner = ({
                   <h2>Before you begin</h2>
                   <ul className="assessmentRules">
                     <li>
-                      Some tests have several tasks. Your program&apos;s output must match the
-                      expected output before the next task appears (press Done / Submit to check).
-                      The time limit covers all tasks together.
+                      Some tests have several tasks. Run your code, then press Done / Submit — the
+                      next task appears once your code runs without errors. The time limit covers
+                      all tasks together.
                     </li>
                     <li>
                       Switching to another tab, window or app is recorded, along with how long you
@@ -926,7 +925,11 @@ export const AssessmentRunner = ({
         <div className="container playground">
           <aside className="playground__instructions">
             {taskState ? (
-              <TaskPanel message={answerMessage} state={taskState} status={answerStatus} />
+              <TaskPanel
+                message={answerMessage}
+                state={taskState}
+                status={answerStatus}
+              />
             ) : hasTasks ? (
               <p className="muted" role={tasksFailed ? 'alert' : 'status'}>
                 {tasksFailed

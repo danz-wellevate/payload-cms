@@ -46,14 +46,12 @@ export const SavedQuestions: CollectionConfig = {
     },
     {
       name: 'acceptedAnswers',
-      label: 'Expected output',
+      label: 'Expected output (optional)',
       type: 'array',
-      required: true,
-      minRows: 1,
       labels: { singular: 'Accepted output', plural: 'Accepted outputs' },
       admin: {
         description:
-          "The candidate passes when their program's output matches ANY of these. Never shown to the candidate.",
+          "Optional. If set, the candidate passes when their program's output matches ANY of these. Leave empty to accept any answer that runs without errors and prints something. Never shown to the candidate.",
       },
       fields: [{ name: 'answer', label: 'Output', type: 'textarea', required: true }],
     },

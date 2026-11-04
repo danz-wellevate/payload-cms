@@ -9,6 +9,7 @@ services:
       target: runner
       args:
         NEXT_PUBLIC_BASE_PATH: /plus_tech_exam
+        NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL}
     image: wellevate/plus-tech-exam:latest
     container_name: plus-tech-exam
     ports:

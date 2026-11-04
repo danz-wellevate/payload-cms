@@ -68,26 +68,6 @@ const ANSWER_GRACE_MS = 30_000
 const MAX_CODE_LENGTH = 64 * 1024
 const MAX_STDIN_LENGTH = 16 * 1024
 
-// Compares program output: line endings and trailing spaces/blank lines are ignored.
-const normalizeOutput = (value: string, caseSensitive: boolean) => {
-  const cleaned = value
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trim()
-  return caseSensitive ? cleaned : cleaned.toLowerCase()
-}
-
-const isCorrectOutput = (task: TaskRow, output: string) => {
-  const caseSensitive = Boolean(task.caseSensitive)
-  const actual = normalizeOutput(output, caseSensitive)
-  if (!actual) return false
-  return (task.acceptedAnswers ?? []).some(
-    (row) => row.answer && normalizeOutput(row.answer, caseSensitive) === actual,
-  )
-}
-
 // What the candidate is allowed to see: only the tasks up to (and including) the current one.
 const publicTaskState = (assessment: TaskAssessment) => {
   const tasks = assessment.tasks ?? []
@@ -153,15 +133,15 @@ const syncSavedQuestions = async ({
   const rows = data?.tasks
   if (!Array.isArray(rows)) return data
 
-  const before = new Map<unknown, TaskRow>(
-    ((originalDoc?.tasks ?? []) as TaskRow[]).map((row) => [row.id, row]),
-  )
+  const originalRows = (originalDoc?.tasks ?? []) as TaskRow[]
+  const before = new Map<unknown, TaskRow>(originalRows.map((row) => [row.id, row]))
 
-  for (const row of rows as TaskRow[]) {
+  for (const [index, row] of (rows as TaskRow[]).entries()) {
     const savedId = idOf(row.savedQuestion)
     if (savedId == null || savedId === '') continue
 
-    const prior = row.id ? before.get(row.id) : undefined
+    // Match the row by id; fall back to its position if the id isn't carried over.
+    const prior = (row.id ? before.get(row.id) : undefined) ?? originalRows[index]
     if (prior && String(idOf(prior.savedQuestion)) === String(savedId) && hasRichText(row.prompt)) {
       continue
     }
@@ -187,6 +167,73 @@ const syncSavedQuestions = async ({
   return data
 }
 
+// What a task "says", used to tell whether an edit was made to it.
+const taskFingerprint = (row: TaskRow) =>
+  JSON.stringify({
+    title: row.title ?? '',
+    prompt: row.prompt ?? null,
+    testInput: row.testInput || null,
+    caseSensitive: Boolean(row.caseSensitive),
+    answers: (row.acceptedAnswers ?? []).map((item) => item.answer ?? ''),
+  })
+
+// When a task that uses a saved question is edited and the assessment is saved, push those edits
+// back into the saved question too. Only rows that already pointed at the same saved question
+// and really changed are pushed; a freshly picked question is just copied in (see above), so a
+// stale assessment can't overwrite a library entry by accident.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pushEditsToSavedQuestions = async ({
+  doc,
+  previousDoc,
+  req,
+}: {
+  doc?: any
+  previousDoc?: any
+  req: PayloadRequest
+}) => {
+  const rows = (doc?.tasks ?? []) as TaskRow[]
+  if (rows.length === 0) return doc
+
+  const previousRows = (previousDoc?.tasks ?? []) as TaskRow[]
+  const before = new Map<unknown, TaskRow>(previousRows.map((row) => [row.id, row]))
+
+  for (const [index, row] of rows.entries()) {
+    const savedId = idOf(row.savedQuestion)
+    if (savedId == null || savedId === '') continue
+
+    // Match the row by id; fall back to its position if the id isn't carried over.
+    const prior = (row.id ? before.get(row.id) : undefined) ?? previousRows[index]
+    req.payload.logger.info(
+      `Saved-question check: task ${index + 1} uses saved question ${savedId}; previous version ${
+        prior
+          ? `found, edited: ${taskFingerprint(prior) !== taskFingerprint(row)}`
+          : 'NOT found (nothing to compare)'
+      }`,
+    )
+    if (!prior || String(idOf(prior.savedQuestion)) !== String(savedId)) continue
+    if (taskFingerprint(prior) === taskFingerprint(row)) continue
+
+    try {
+      await req.payload.update({
+        collection: 'saved-questions' as never,
+        id: savedId as never,
+        data: {
+          ...(row.title ? { name: row.title } : {}),
+          prompt: row.prompt,
+          testInput: row.testInput || null,
+          caseSensitive: Boolean(row.caseSensitive),
+          acceptedAnswers: (row.acceptedAnswers ?? []).map((item) => ({ answer: item.answer })),
+        } as never,
+        req,
+      })
+      req.payload.logger.info(`Updated saved question ${savedId} from edits made in an assessment`)
+    } catch (error) {
+      req.payload.logger.warn({ err: error, msg: `Could not update saved question ${savedId}` })
+    }
+  }
+  return doc
+}
+
 // Typed loosely on purpose: until `payload generate:types` is re-run, payload-types.ts doesn't
 // know the new task fields and TypeScript can't match payload.update's overloads. Once the types
 // are regenerated this can be replaced with plain req.payload.update calls.
@@ -210,8 +257,10 @@ const isPastDeadline = (assessment: TaskAssessment) => {
 }
 
 // Called from afterChange when the admin typed a password into "Candidate login password" and
-// saved. Creates (or claims a passwordless) applicant account and links it to the assessment, so
-// the candidate can sign in with that password and go straight to the exam.
+// saved. Creates (or claims a passwordless) applicant account and links it to the assessment.
+// That password is a master key, not the candidate's own — passwordSet stays false so the
+// emailed link sends them to set their own password (and `applicantPasswordSet` in the admin
+// shows unchecked until they do).
 const createApplicantLogin = async (
   req: PayloadRequest,
   assessment: Assessment,
@@ -240,7 +289,7 @@ const createApplicantLogin = async (
       applicant = await req.payload.update({
         collection: 'applicants',
         id: applicant.id,
-        data: { password, passwordSet: true, name: assessment.candidateName || applicant.name },
+        data: { password, passwordSet: false, name: assessment.candidateName || applicant.name },
         req,
       })
     } else {
@@ -250,7 +299,7 @@ const createApplicantLogin = async (
           email,
           name: assessment.candidateName || undefined,
           password,
-          passwordSet: true,
+          passwordSet: false,
           timeLimitMinutes: assessment.durationMinutes || DEFAULT_TIME_LIMIT_MINUTES,
         },
         req,
@@ -264,7 +313,7 @@ const createApplicantLogin = async (
       req,
     })
 
-    await sendApplicantLoginCreated(req.payload, assessment, password)
+    await sendApplicantLoginCreated(req.payload, assessment)
   } catch (error) {
     req.payload.logger.warn({ err: error, msg: `Could not create applicant login for ${email}` })
   }
@@ -325,12 +374,12 @@ export const Assessments: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [syncSavedQuestions],
-    // The password typed into "Candidate login password" is kept on the assessment (see the
-    // field below) so an admin can come back and read it later to send manually — SMTP delivery
-    // isn't reliable enough yet to assume the candidate ever got the automatic email.
+    // The password typed into "Candidate login password" is only ever used to create the
+    // login below; it's never written to the assessments table.
     beforeChange: [
       ({ data, req, originalDoc }) => {
         if (data?.applicantPassword) req.context.applicantPassword = data.applicantPassword
+        if (data) delete data.applicantPassword
 
         // "Reset assessment" puts the status back to "invited" — also restart the task
         // progression so the candidate begins again at task 1.
@@ -345,6 +394,8 @@ export const Assessments: CollectionConfig = {
     // Hiring workflow: keeps the linked application in step, and sends the Head of Plus the
     // monitoring report when the candidate finishes.
     afterChange: [
+      // Edits made to a task that uses a saved question are written back to that question.
+      pushEditsToSavedQuestions,
       // Created directly here (not by the hiring pipeline, which sets this context flag
       // because it sends its own "technical assessment scheduled" email instead). Skipped when
       // a password was typed into "Candidate login password" too — that case gets only the
@@ -537,10 +588,9 @@ export const Assessments: CollectionConfig = {
             ? body.stdin.slice(0, MAX_STDIN_LENGTH)
             : ''
 
-        let output = ''
+        let result
         try {
-          const result = await runCode({ languageId: language.id, sourceCode: code, stdin })
-          output = result.stdout ?? ''
+          result = await runCode({ languageId: language.id, sourceCode: code, stdin })
         } catch {
           return Response.json(
             { error: 'The code runner is unavailable right now. Please try again.' },
@@ -548,12 +598,21 @@ export const Assessments: CollectionConfig = {
           )
         }
 
-        if (!isCorrectOutput(task, output)) {
+        // The task advances as long as the code runs cleanly — a mismatch with the expected
+        // output no longer blocks progress (reviewers compare the saved output themselves). Only
+        // a compile error, runtime error or timeout keeps the candidate on the current task.
+        // Judge0 status 3 = Accepted (ran to completion, exit 0, no compile/runtime error).
+        if (result.status.id !== 3) {
           await updateAssessment(req, assessment.id, {
             wrongAnswers: (assessment.wrongAnswers ?? 0) + 1,
           })
-          return Response.json({ correct: false })
+          return Response.json({
+            correct: false,
+            error: `Your code didn't run successfully (${result.status.description}). Fix the errors and run it again — your time keeps running.`,
+          })
         }
+
+        const output = result.stdout ?? ''
 
         // Keep this task's code and output so the admin can review every task, not just the
         // code that happens to be in the editor at the end.
@@ -633,7 +692,18 @@ export const Assessments: CollectionConfig = {
                   relationTo: 'saved-questions' as never,
                   admin: {
                     description:
-                      'Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty.',
+                      'Optional. Pick a question from Saved Questions — its title, question, expected output and test input are copied in when you save. Leave the fields below empty — they fill in when you save. If you later edit them here and save, the saved question is updated too.',
+                  },
+                },
+                {
+                  // Shows the picked saved question straight away (the fields below are filled
+                  // in from it when the assessment is saved).
+                  name: 'savedQuestionPreview',
+                  type: 'ui',
+                  admin: {
+                    components: {
+                      Field: '/components/admin/SavedQuestionPreview#SavedQuestionPreview',
+                    },
                   },
                 },
                 {
@@ -662,17 +732,12 @@ export const Assessments: CollectionConfig = {
                 },
                 {
                   name: 'acceptedAnswers',
-                  label: 'Expected output',
+                  label: 'Expected output (optional)',
                   type: 'array',
-                  // At least one, unless a saved question will supply it.
-                  validate: ((value: unknown, { siblingData }: { siblingData?: TaskRow }) =>
-                    (Array.isArray(value) && value.length > 0) || siblingData?.savedQuestion
-                      ? true
-                      : 'Add at least one expected output, or pick a saved question.') as never,
                   labels: { singular: 'Accepted output', plural: 'Accepted outputs' },
                   admin: {
                     description:
-                      "The candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Never shown to the candidate.",
+                      "Optional. If set, the candidate passes this task when their program's output matches ANY of these (the server re-runs their code to check). Line endings and trailing spaces are ignored. Leave empty to accept any answer that runs without errors and prints something — you review it yourself under Submission → Solved tasks. Never shown to the candidate.",
                   },
                   fields: [{ name: 'answer', label: 'Output', type: 'textarea', required: true }],
                 },
@@ -916,6 +981,19 @@ export const Assessments: CollectionConfig = {
       },
     },
     {
+      name: 'applicantPasswordSet',
+      label: 'Candidate set their own password',
+      type: 'checkbox',
+      virtual: 'applicant.passwordSet',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        condition: (data) => Boolean(data?.applicant),
+        description:
+          'Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).',
+      },
+    },
+    {
       name: 'applicantPassword',
       label: 'Candidate login password',
       type: 'text',
@@ -925,10 +1003,7 @@ export const Assessments: CollectionConfig = {
         `Use at least ${MIN_PASSWORD_LENGTH} characters, or leave this blank.`,
       admin: {
         position: 'sidebar',
-        // No `condition` here on purpose: the field must stay mounted after the login is
-        // created (applicant gets set) so ApplicantPasswordField can keep showing the stored
-        // password for the admin to copy and send manually — it decides for itself whether to
-        // render the editable form or the read-only reveal.
+        condition: (data) => !data?.applicant,
         components: { Field: '/components/admin/ApplicantPasswordField#ApplicantPasswordField' },
       },
     },
