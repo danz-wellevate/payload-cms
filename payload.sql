@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict OjHgG2SkMZvw4iTOk5kexsdqrmuahQt7KQqdsJ1V1IWDC6Q1K2wVPjdhdwij4CP
+\restrict djbxHd1psnKcSfUfPfsR4Pbo7r7RzrgeSnRkJ90tkaaQDVofY4aJ97Dja6TVvhl
 
 -- Dumped from database version 16.15
 -- Dumped by pg_dump version 16.15
@@ -179,6 +179,7 @@ CREATE TYPE public.enum_proctoring_events_type AS ENUM (
     'paste',
     'camera_off',
     'screen_share_stopped',
+    'wrong_screen',
     'multiple_monitors',
     'code_run',
     'time_expired',
@@ -407,7 +408,9 @@ CREATE TABLE public.assessments (
     code_runs numeric DEFAULT 0,
     multiple_monitors boolean,
     updated_at timestamp(3) with time zone DEFAULT now() NOT NULL,
-    created_at timestamp(3) with time zone DEFAULT now() NOT NULL
+    created_at timestamp(3) with time zone DEFAULT now() NOT NULL,
+    current_task_index numeric DEFAULT 0,
+    wrong_answers numeric DEFAULT 0
 );
 
 
@@ -429,6 +432,51 @@ CREATE SEQUENCE public.assessments_id_seq
 --
 
 ALTER SEQUENCE public.assessments_id_seq OWNED BY public.assessments.id;
+
+
+--
+-- Name: assessments_task_results; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessments_task_results (
+    _order integer NOT NULL,
+    _parent_id integer NOT NULL,
+    id character varying NOT NULL,
+    task_number numeric,
+    task_title character varying,
+    language_label character varying,
+    solved_at timestamp(3) with time zone,
+    code character varying,
+    output character varying
+);
+
+
+--
+-- Name: assessments_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessments_tasks (
+    _order integer NOT NULL,
+    _parent_id integer NOT NULL,
+    id character varying NOT NULL,
+    saved_question_id integer,
+    title character varying,
+    prompt jsonb,
+    test_input character varying,
+    case_sensitive boolean DEFAULT false
+);
+
+
+--
+-- Name: assessments_tasks_accepted_answers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessments_tasks_accepted_answers (
+    _order integer NOT NULL,
+    _parent_id character varying NOT NULL,
+    id character varying NOT NULL,
+    answer character varying NOT NULL
+);
 
 
 --
@@ -955,7 +1003,8 @@ CREATE TABLE public.payload_locked_documents_rels (
     jobs_id integer,
     applications_id integer,
     interview_slots_id integer,
-    resumes_id integer
+    resumes_id integer,
+    saved_questions_id integer
 );
 
 
@@ -1316,6 +1365,53 @@ ALTER SEQUENCE public.resumes_id_seq OWNED BY public.resumes.id;
 
 
 --
+-- Name: saved_questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.saved_questions (
+    id integer NOT NULL,
+    name character varying NOT NULL,
+    prompt jsonb NOT NULL,
+    test_input character varying,
+    case_sensitive boolean DEFAULT false,
+    updated_at timestamp(3) with time zone DEFAULT now() NOT NULL,
+    created_at timestamp(3) with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: saved_questions_accepted_answers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.saved_questions_accepted_answers (
+    _order integer NOT NULL,
+    _parent_id integer NOT NULL,
+    id character varying NOT NULL,
+    answer character varying NOT NULL
+);
+
+
+--
+-- Name: saved_questions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.saved_questions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: saved_questions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.saved_questions_id_seq OWNED BY public.saved_questions.id;
+
+
+--
 -- Name: site_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1560,6 +1656,13 @@ ALTER TABLE ONLY public.resumes ALTER COLUMN id SET DEFAULT nextval('public.resu
 
 
 --
+-- Name: saved_questions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_questions ALTER COLUMN id SET DEFAULT nextval('public.saved_questions_id_seq'::regclass);
+
+
+--
 -- Name: site_settings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1603,6 +1706,30 @@ ALTER TABLE ONLY public.applications
 
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessments_task_results assessments_task_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_task_results
+    ADD CONSTRAINT assessments_task_results_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessments_tasks_accepted_answers assessments_tasks_accepted_answers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_tasks_accepted_answers
+    ADD CONSTRAINT assessments_tasks_accepted_answers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessments_tasks assessments_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_tasks
+    ADD CONSTRAINT assessments_tasks_pkey PRIMARY KEY (id);
 
 
 --
@@ -1870,6 +1997,22 @@ ALTER TABLE ONLY public.resumes
 
 
 --
+-- Name: saved_questions_accepted_answers saved_questions_accepted_answers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_questions_accepted_answers
+    ADD CONSTRAINT saved_questions_accepted_answers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: saved_questions saved_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_questions
+    ADD CONSTRAINT saved_questions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: site_settings site_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2010,6 +2153,55 @@ CREATE INDEX assessments_applicant_idx ON public.assessments USING btree (applic
 --
 
 CREATE INDEX assessments_created_at_idx ON public.assessments USING btree (created_at);
+
+
+--
+-- Name: assessments_task_results_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_task_results_order_idx ON public.assessments_task_results USING btree (_order);
+
+
+--
+-- Name: assessments_task_results_parent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_task_results_parent_id_idx ON public.assessments_task_results USING btree (_parent_id);
+
+
+--
+-- Name: assessments_tasks_accepted_answers_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_tasks_accepted_answers_order_idx ON public.assessments_tasks_accepted_answers USING btree (_order);
+
+
+--
+-- Name: assessments_tasks_accepted_answers_parent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_tasks_accepted_answers_parent_id_idx ON public.assessments_tasks_accepted_answers USING btree (_parent_id);
+
+
+--
+-- Name: assessments_tasks_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_tasks_order_idx ON public.assessments_tasks USING btree (_order);
+
+
+--
+-- Name: assessments_tasks_parent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_tasks_parent_id_idx ON public.assessments_tasks USING btree (_parent_id);
+
+
+--
+-- Name: assessments_tasks_saved_question_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessments_tasks_saved_question_idx ON public.assessments_tasks USING btree (saved_question_id);
 
 
 --
@@ -2510,6 +2702,13 @@ CREATE INDEX payload_locked_documents_rels_resumes_id_idx ON public.payload_lock
 
 
 --
+-- Name: payload_locked_documents_rels_saved_questions_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX payload_locked_documents_rels_saved_questions_id_idx ON public.payload_locked_documents_rels USING btree (saved_questions_id);
+
+
+--
 -- Name: payload_locked_documents_rels_users_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2734,6 +2933,34 @@ CREATE INDEX resumes_updated_at_idx ON public.resumes USING btree (updated_at);
 
 
 --
+-- Name: saved_questions_accepted_answers_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saved_questions_accepted_answers_order_idx ON public.saved_questions_accepted_answers USING btree (_order);
+
+
+--
+-- Name: saved_questions_accepted_answers_parent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saved_questions_accepted_answers_parent_id_idx ON public.saved_questions_accepted_answers USING btree (_parent_id);
+
+
+--
+-- Name: saved_questions_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saved_questions_created_at_idx ON public.saved_questions USING btree (created_at);
+
+
+--
+-- Name: saved_questions_updated_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX saved_questions_updated_at_idx ON public.saved_questions USING btree (updated_at);
+
+
+--
 -- Name: site_settings_favicon_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2836,6 +3063,38 @@ ALTER TABLE ONLY public.applications
 
 ALTER TABLE ONLY public.assessments
     ADD CONSTRAINT assessments_applicant_id_applicants_id_fk FOREIGN KEY (applicant_id) REFERENCES public.applicants(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessments_task_results assessments_task_results_parent_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_task_results
+    ADD CONSTRAINT assessments_task_results_parent_id_fk FOREIGN KEY (_parent_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessments_tasks_accepted_answers assessments_tasks_accepted_answers_parent_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_tasks_accepted_answers
+    ADD CONSTRAINT assessments_tasks_accepted_answers_parent_id_fk FOREIGN KEY (_parent_id) REFERENCES public.assessments_tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessments_tasks assessments_tasks_parent_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_tasks
+    ADD CONSTRAINT assessments_tasks_parent_id_fk FOREIGN KEY (_parent_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessments_tasks assessments_tasks_saved_question_id_saved_questions_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments_tasks
+    ADD CONSTRAINT assessments_tasks_saved_question_id_saved_questions_id_fk FOREIGN KEY (saved_question_id) REFERENCES public.saved_questions(id) ON DELETE SET NULL;
 
 
 --
@@ -3079,6 +3338,14 @@ ALTER TABLE ONLY public.payload_locked_documents_rels
 
 
 --
+-- Name: payload_locked_documents_rels payload_locked_documents_rels_saved_questions_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payload_locked_documents_rels
+    ADD CONSTRAINT payload_locked_documents_rels_saved_questions_fk FOREIGN KEY (saved_questions_id) REFERENCES public.saved_questions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: payload_locked_documents_rels payload_locked_documents_rels_users_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3143,6 +3410,14 @@ ALTER TABLE ONLY public.proctoring_snapshots
 
 
 --
+-- Name: saved_questions_accepted_answers saved_questions_accepted_answers_parent_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_questions_accepted_answers
+    ADD CONSTRAINT saved_questions_accepted_answers_parent_id_fk FOREIGN KEY (_parent_id) REFERENCES public.saved_questions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: site_settings site_settings_favicon_id_media_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3170,5 +3445,5 @@ ALTER TABLE ONLY public.users_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict OjHgG2SkMZvw4iTOk5kexsdqrmuahQt7KQqdsJ1V1IWDC6Q1K2wVPjdhdwij4CP
+\unrestrict djbxHd1psnKcSfUfPfsR4Pbo7r7RzrgeSnRkJ90tkaaQDVofY4aJ97Dja6TVvhl
 
