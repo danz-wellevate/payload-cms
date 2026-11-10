@@ -62,7 +62,7 @@ type TaskState = {
   total: number
   current: number
   finished: boolean
-  tasks: { title: string; prompt: unknown }[]
+  tasks: { title: string; prompt: unknown; code?: string | null; languageLabel?: string | null }[]
 }
 type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
 
@@ -95,48 +95,99 @@ const formatRemaining = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
-// The instructions panel for multi-task assessments: shows the current task and the result of
-// the last check. The "Done / Submit" button in the top bar does the checking; the next task only
-// appears once the program's output matches.
+// The instructions panel for multi-task assessments: tabs to move between unlocked tasks, the
+// task being viewed, and the result of the last check. Solved tasks can be reopened to improve
+// their code; the "Done / Submit" button in the top bar does the checking.
 const TaskPanel = ({
   state,
+  view,
   status,
   message,
+  onSelect,
 }: {
   state: TaskState
+  view: number
   status: AnswerStatus
   message: string | null
+  onSelect: (index: number) => void
 }) => {
-  const solved = state.tasks.slice(0, state.current)
-  const active = state.finished ? null : state.tasks[state.current]
+  const complete = state.finished
+  const revisiting = view < state.current
+  const active = view < state.total ? state.tasks[view] : null
   const isLast = state.current + 1 >= state.total
 
   return (
     <div className="taskPanel">
       <p className="eyebrow">
-        {state.finished
+        {view >= state.total
           ? `All ${state.total} tasks complete`
-          : `Task ${state.current + 1} of ${state.total}`}
+          : `Task ${view + 1} of ${state.total}`}
       </p>
 
-      {solved.map((task, index) => (
-        <details key={index} style={{ marginBottom: '0.75rem' }}>
-          <summary>
-            ✓ {task.title} <span className="muted">(solved)</span>
-          </summary>
-          <RichText data={task.prompt as never} />
-        </details>
-      ))}
+      {(state.current > 0 || complete) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+          {state.tasks.slice(0, state.total).map((task, index) => (
+            <button
+              aria-current={view === index}
+              className="button button--outline"
+              key={index}
+              onClick={() => onSelect(index)}
+              style={{
+                fontWeight: view === index ? 700 : 400,
+                opacity: view === index ? 1 : 0.75,
+                padding: '0.25rem 0.75rem',
+              }}
+              title={task.title}
+              type="button"
+            >
+              {index < state.current ? '✓ ' : ''}Task {index + 1}
+            </button>
+          ))}
+          {complete && (
+            <button
+              aria-current={view >= state.total}
+              className="button button--outline"
+              onClick={() => onSelect(state.total)}
+              style={{
+                fontWeight: view >= state.total ? 700 : 400,
+                opacity: view >= state.total ? 1 : 0.75,
+                padding: '0.25rem 0.75rem',
+              }}
+              type="button"
+            >
+              Finish
+            </button>
+          )}
+        </div>
+      )}
 
       {active && (
         <>
           <h2>{active.title}</h2>
           <RichText data={active.prompt as never} />
 
-          <p className="muted" style={{ marginTop: '1rem' }}>
-            Write your code and run it. When your program prints the expected output, press
-            &ldquo;Done / Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
-          </p>
+          {revisiting ? (
+            <>
+              <p className="muted" style={{ marginTop: '1rem' }}>
+                You&apos;re revisiting a task you already solved. Edit and run your code, then press
+                &ldquo;Done / Submit&rdquo; to replace your saved answer. If the new output
+                doesn&apos;t match, your earlier saved answer is kept.
+              </p>
+              <button
+                className="button button--outline"
+                onClick={() => onSelect(state.current)}
+                type="button"
+              >
+                {complete ? 'Back to finish' : `Back to Task ${state.current + 1}`}
+              </button>
+            </>
+          ) : (
+            <p className="muted" style={{ marginTop: '1rem' }}>
+              Write your code and run it. When your program prints the expected output, press
+              &ldquo;Done / Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
+            </p>
+          )}
+
           {status === 'checking' && (
             <p className="muted" role="status">
               Checking your output…
@@ -144,8 +195,9 @@ const TaskPanel = ({
           )}
           {status === 'wrong' && (
             <p className="assessmentError" role="alert">
-              Your output doesn&apos;t match the expected output yet. Run your code, check the
-              result and try again — your time keeps running.
+              {revisiting
+                ? "Your output doesn't match, so your earlier saved answer for this task is kept."
+                : "Your output doesn't match the expected output yet. Run your code, check the result and try again — your time keeps running."}
             </p>
           )}
           {status === 'error' && message && (
@@ -153,17 +205,13 @@ const TaskPanel = ({
               {message}
             </p>
           )}
-          {status === 'correct' && (
-            <p className="muted" role="status">
-              Correct! Moving on to the next task.
-            </p>
-          )}
         </>
       )}
 
-      {state.finished && (
+      {view >= state.total && (
         <p className="lead">
-          Every task is complete. Press &ldquo;Done / Submit&rdquo; to hand in your code.
+          Every task is complete. Press &ldquo;Done / Submit&rdquo; to hand in your code, or go back
+          to any task above to improve it first.
         </p>
       )}
     </div>
@@ -211,6 +259,17 @@ export const AssessmentRunner = ({
   const [answerStatus, setAnswerStatus] = useState<AnswerStatus>('idle')
   const [answerMessage, setAnswerMessage] = useState<string | null>(null)
   const [tasksFailed, setTasksFailed] = useState(false)
+  // Which task is on screen (can be an earlier, already solved one) and what the editor should
+  // start with after switching (the editor is remounted per switch).
+  const [view, setView] = useState(0)
+  // Set when the candidate tries to leave an earlier task they changed; shows the
+  // "save changes?" prompt. Holds the task they were heading to.
+  const [pendingNav, setPendingNav] = useState<number | null>(null)
+  const [seed, setSeed] = useState<{
+    code: string | null
+    languageId: number | null
+    key: number
+  } | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -225,6 +284,11 @@ export const AssessmentRunner = ({
   const queueRef = useRef<ClientEvent[]>([])
   const flushChainRef = useRef<Promise<void>>(Promise.resolve())
   const finishedRef = useRef(false)
+  // Code of the tasks the candidate has left, so going back and forth never loses work.
+  const draftsRef = useRef(new Map<number, { code: string; languageId: number }>())
+  const seedKeyRef = useRef(0)
+  const revisitingRef = useRef(false)
+  const taskStateRef = useRef<TaskState | null>(null)
 
   const record = useCallback((type: ProctoringEventType, extra: Partial<ClientEvent> = {}) => {
     if (finishedRef.current) return
@@ -235,8 +299,9 @@ export const AssessmentRunner = ({
   const takeBatch = useCallback(
     () => ({
       events: queueRef.current.splice(0),
-      code: editorRef.current?.getValue(),
-      languageId: languageIdRef.current,
+      // While an earlier task is open, don't autosave its code over the current task's draft.
+      code: revisitingRef.current ? undefined : editorRef.current?.getValue(),
+      languageId: revisitingRef.current ? undefined : languageIdRef.current,
     }),
     [],
   )
@@ -458,7 +523,10 @@ export const AssessmentRunner = ({
         const res = await fetch(`${taskApi}/tasks`, { cache: 'no-store' })
         if (!res.ok) throw new Error()
         const data = (await res.json()) as TaskState
-        if (!cancelled && data.total > 0) setTaskState(data)
+        if (!cancelled && data.total > 0) {
+          setTaskState(data)
+          setView(data.current)
+        }
       } catch {
         // Only a problem when the assessment is supposed to have tasks.
         if (!cancelled) setTasksFailed(true)
@@ -469,11 +537,78 @@ export const AssessmentRunner = ({
     }
   }, [phase, taskApi])
 
-  // Sends the current code to the server, which re-runs it and compares the output with the
-  // task's expected output. Resolves to true only when that was the LAST task and it is now
-  // solved. The countdown is untouched, so all tasks share the same time limit.
-  const checkTask = async (): Promise<boolean> => {
-    if (!taskState || taskState.finished || answerStatus === 'checking') return false
+  // Keep refs in step with state for code that runs outside of renders (autosave, submit).
+  useEffect(() => {
+    taskStateRef.current = taskState
+    revisitingRef.current = !!taskState && view < taskState.current
+  }, [taskState, view])
+
+  const languageIdFromLabel = (label?: string | null) =>
+    label ? languages.find((language) => language.label === label)?.id : undefined
+
+  // What the editor should show when opening a task: the candidate's own unsaved draft, else the
+  // code saved when they solved it, else a fresh editor for a task they haven't started.
+  const seedFor = (target: number, state: TaskState) => {
+    const index = target >= state.total ? state.total - 1 : target
+    const draft = draftsRef.current.get(index)
+    if (draft) return { code: draft.code, languageId: draft.languageId }
+    const saved = state.tasks[index]
+    if (index < state.current && saved?.code) {
+      return {
+        code: saved.code,
+        languageId: languageIdFromLabel(saved.languageLabel) ?? languageIdRef.current,
+      }
+    }
+    return { code: null, languageId: languageIdRef.current }
+  }
+
+  // Switches to another unlocked task. The task being left keeps whatever is in the editor.
+  //  - skipPrompt: leave without asking (used after saving, or after choosing "don't update");
+  //  - discard: drop the code typed in the task being left instead of keeping it as a draft.
+  const goToView = (
+    target: number,
+    state: TaskState | null = taskState,
+    options: { skipPrompt?: boolean; discard?: boolean } = {},
+  ) => {
+    if (!state) return
+    const next = Math.max(0, Math.min(target, state.current))
+    if (next === view && state === taskState) return
+
+    // Leaving a solved task whose code was changed: ask whether to save the change first.
+    if (!options.skipPrompt && view < state.current) {
+      const saved = state.tasks[view]?.code
+      const now = editorRef.current?.getValue()
+      if (saved != null && now != null && now !== saved) {
+        setPendingNav(next)
+        return
+      }
+    }
+
+    const leaving = view >= state.total ? state.total - 1 : view
+    if (options.discard) {
+      draftsRef.current.delete(leaving)
+    } else if (editorRef.current) {
+      draftsRef.current.set(leaving, {
+        code: editorRef.current.getValue(),
+        languageId: languageIdRef.current,
+      })
+    }
+    void flush() // save the current task's code before it stops being autosaved
+
+    const nextSeed = seedFor(next, state)
+    if (nextSeed.languageId) languageIdRef.current = nextSeed.languageId
+    seedKeyRef.current += 1
+    setSeed({ ...nextSeed, key: seedKeyRef.current })
+    setView(next)
+    setAnswerStatus('idle')
+    setAnswerMessage(null)
+  }
+
+  // Sends the code on screen to the server, which re-runs it and compares the output with the
+  // expected output of the task being viewed. Resolves to the updated task state when it
+  // matched, otherwise null. The countdown is untouched, so all tasks share one time limit.
+  const checkTask = async (): Promise<TaskState | null> => {
+    if (!taskState || view >= taskState.total || answerStatus === 'checking') return null
     setAnswerStatus('checking')
     setAnswerMessage(null)
     try {
@@ -481,7 +616,7 @@ export const AssessmentRunner = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          taskIndex: taskState.current,
+          taskIndex: view,
           code: editorRef.current?.getValue() ?? '',
           languageId: languageIdRef.current,
           stdin: stdinRef.current,
@@ -493,32 +628,68 @@ export const AssessmentRunner = ({
       if (!res.ok) {
         setAnswerStatus('error')
         setAnswerMessage(data.error ?? 'Could not check your output. Please try again.')
-        return false
+        return null
       }
 
       if (data.correct) {
         setAnswerStatus('correct')
-        return Boolean(data.state?.finished)
+        return data.state as TaskState
       }
       setAnswerStatus('wrong')
-      return false
+      return null
     } catch {
       setAnswerStatus('error')
       setAnswerMessage('Could not check your output. Check your connection and try again.')
-      return false
+      return null
     }
   }
 
-  // "Done / Submit": with tasks, check the output first — a correct one unlocks the next task,
-  // and after the last task the usual submit confirmation opens. Without tasks it just opens
-  // the confirmation as before.
+  // "Done / Submit":
+  //  - on the final "Finish" page: open the submit confirmation;
+  //  - on an earlier, solved task: re-check it and, if it still matches, keep the improved code
+  //    and return to where they were;
+  //  - on the current task: check it — a match unlocks the next task, and after the last task
+  //    the submit confirmation opens.
+  // Without tasks it just opens the confirmation as before.
   const handleDone = async () => {
-    if (!taskState || taskState.finished) {
+    if (!taskState || view >= taskState.total) {
       setConfirmingSubmit(true)
       return
     }
-    const allSolved = await checkTask()
-    if (allSolved) setConfirmingSubmit(true)
+
+    const revisiting = view < taskState.current
+    const next = await checkTask()
+    if (!next) return
+
+    if (revisiting) {
+      setWarning(`Task ${view + 1} updated with your new code.`)
+      goToView(next.current, next, { skipPrompt: true }) // back to the current task / finish page
+      return
+    }
+    if (next.finished) {
+      setView(next.total) // keep the editor as it is: it holds the last task's code
+      setConfirmingSubmit(true)
+      return
+    }
+    goToView(next.current, next, { skipPrompt: true })
+  }
+
+  // Prompt choices for leaving an earlier task whose code was changed.
+  const saveChangesAndLeave = async () => {
+    const target = pendingNav
+    setPendingNav(null)
+    if (target === null) return
+    const next = await checkTask() // re-checks the task on screen
+    if (!next) return // output didn't match: stay here; the earlier saved answer is kept
+    setWarning(`Task ${view + 1} updated with your new code.`)
+    goToView(target, next, { skipPrompt: true })
+  }
+
+  const leaveWithoutSaving = () => {
+    const target = pendingNav
+    setPendingNav(null)
+    if (target === null) return
+    goToView(target, taskState, { skipPrompt: true, discard: true })
   }
 
   const start = async () => {
@@ -544,7 +715,17 @@ export const AssessmentRunner = ({
       setConfirmingSubmit(false)
       setPhase('submitting')
 
-      const code = editorRef.current?.getValue() ?? ''
+      let code = editorRef.current?.getValue() ?? ''
+      let submitLanguageId = languageIdRef.current
+      // If an earlier task is open (e.g. time ran out), hand in the latest task's code instead.
+      const tasksNow = taskStateRef.current
+      if (revisitingRef.current && tasksNow) {
+        const draft = draftsRef.current.get(Math.min(tasksNow.current, tasksNow.total - 1))
+        if (draft) {
+          code = draft.code
+          submitLanguageId = draft.languageId
+        }
+      }
       // Finish the recordings first so their last clips are saved with the exam.
       const recorders = [recorderRef.current, screenRecorderRef.current]
       recorderRef.current = null
@@ -562,7 +743,7 @@ export const AssessmentRunner = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             code,
-            languageId: languageIdRef.current,
+            languageId: submitLanguageId,
             stdin: stdinRef.current,
             reason,
           }),
@@ -926,7 +1107,13 @@ export const AssessmentRunner = ({
         <div className="container playground">
           <aside className="playground__instructions">
             {taskState ? (
-              <TaskPanel message={answerMessage} state={taskState} status={answerStatus} />
+              <TaskPanel
+                message={answerMessage}
+                onSelect={(index) => goToView(index)}
+                state={taskState}
+                status={answerStatus}
+                view={view}
+              />
             ) : hasTasks ? (
               <p className="muted" role={tasksFailed ? 'alert' : 'status'}>
                 {tasksFailed
@@ -938,9 +1125,10 @@ export const AssessmentRunner = ({
             )}
           </aside>
           <CodePlayground
-            initialCode={resume?.code}
-            initialLanguageId={resume?.languageId}
-            modelPrefix={`assessment-${token}`}
+            initialCode={seed ? seed.code : resume?.code}
+            initialLanguageId={seed ? seed.languageId : resume?.languageId}
+            key={seed?.key ?? 0}
+            modelPrefix={`assessment-${token}-${seed?.key ?? 0}`}
             onEditorMount={handleEditorMount}
             onLanguageChange={(id) => (languageIdRef.current = id)}
             onRun={(status) => record('code_run', { detail: status })}
@@ -1003,6 +1191,38 @@ export const AssessmentRunner = ({
       {warning && (
         <div className="assessmentWarning" role="alert">
           {warning}
+        </div>
+      )}
+
+      {pendingNav !== null && taskState && (
+        <div className="assessmentOverlay" role="dialog">
+          <div className="assessmentOverlay__box">
+            <h2>Save your changes to Task {view + 1}?</h2>
+            <p>
+              You changed your code for Task {view + 1}. Click &ldquo;Save changes&rdquo; to check
+              it and replace your saved answer. If you don&apos;t update it, your earlier saved
+              answer is kept and these changes are discarded.
+            </p>
+            <div className="buttonGroup">
+              <button
+                className="button button--primary"
+                onClick={saveChangesAndLeave}
+                type="button"
+              >
+                Save changes
+              </button>
+              <button className="button button--outline" onClick={leaveWithoutSaving} type="button">
+                Don&apos;t update
+              </button>
+              <button
+                className="button button--outline"
+                onClick={() => setPendingNav(null)}
+                type="button"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

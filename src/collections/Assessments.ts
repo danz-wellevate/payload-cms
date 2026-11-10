@@ -97,9 +97,20 @@ const publicTaskState = (assessment: TaskAssessment) => {
     total: tasks.length,
     current,
     finished: tasks.length > 0 && current >= tasks.length,
-    tasks: tasks
-      .slice(0, Math.min(current + 1, tasks.length))
-      .map((task, index) => ({ title: task.title || `Task ${index + 1}`, prompt: task.prompt })),
+    tasks: tasks.slice(0, Math.min(current + 1, tasks.length)).map((task, index) => {
+      // For tasks already solved, hand back the saved code so the candidate can go back and
+      // improve it (never the expected output).
+      const saved =
+        index < current
+          ? (assessment.taskResults ?? []).find((result) => result.taskNumber === index + 1)
+          : undefined
+      return {
+        title: task.title || `Task ${index + 1}`,
+        prompt: task.prompt,
+        code: saved?.code ?? null,
+        languageLabel: saved?.languageLabel ?? null,
+      }
+    }),
   }
 }
 
@@ -278,10 +289,8 @@ const isPastDeadline = (assessment: TaskAssessment) => {
 }
 
 // Called from afterChange when the admin typed a password into "Candidate login password" and
-// saved. Creates (or claims a passwordless) applicant account and links it to the assessment.
-// That password is a master key, not the candidate's own — passwordSet stays false so the
-// emailed link sends them to set their own password (and `applicantPasswordSet` in the admin
-// shows unchecked until they do).
+// saved. Creates (or claims a passwordless) applicant account and links it to the assessment, so
+// the candidate can sign in with that password and go straight to the exam.
 const createApplicantLogin = async (
   req: PayloadRequest,
   assessment: Assessment,
@@ -310,7 +319,7 @@ const createApplicantLogin = async (
       applicant = await req.payload.update({
         collection: 'applicants',
         id: applicant.id,
-        data: { password, passwordSet: false, name: assessment.candidateName || applicant.name },
+        data: { password, passwordSet: true, name: assessment.candidateName || applicant.name },
         req,
       })
     } else {
@@ -320,7 +329,7 @@ const createApplicantLogin = async (
           email,
           name: assessment.candidateName || undefined,
           password,
-          passwordSet: false,
+          passwordSet: true,
           timeLimitMinutes: assessment.durationMinutes || DEFAULT_TIME_LIMIT_MINUTES,
         },
         req,
@@ -334,7 +343,7 @@ const createApplicantLogin = async (
       req,
     })
 
-    await sendApplicantLoginCreated(req.payload, assessment)
+    await sendApplicantLoginCreated(req.payload, assessment, password)
   } catch (error) {
     req.payload.logger.warn({ err: error, msg: `Could not create applicant login for ${email}` })
   }
@@ -587,22 +596,22 @@ export const Assessments: CollectionConfig = {
 
         const tasks = assessment.tasks ?? []
         const current = assessment.currentTaskIndex ?? 0
-        if (current >= tasks.length) {
-          return Response.json({ error: 'All tasks are already complete.' }, { status: 409 })
+        const index = body.taskIndex
+        if (!Number.isInteger(index) || index < 0 || index >= tasks.length) {
+          return Response.json({ error: 'Invalid request.' }, { status: 400 })
         }
+        // Going back: re-checking a task that was already solved, to improve its code.
+        const revisit = index < current
         // Out of sync (e.g. answered in another tab): hand back the real state.
-        if (body.taskIndex !== current) {
+        if (index > current) {
           return Response.json(
-            {
-              error: 'That task is no longer the current one.',
-              state: publicTaskState(assessment),
-            },
+            { error: 'That task is not unlocked yet.', state: publicTaskState(assessment) },
             { status: 409 },
           )
         }
 
         // A fixed test input set by the admin wins over whatever the candidate typed.
-        const task = tasks[current]
+        const task = tasks[index]
         const stdin = task.testInput
           ? task.testInput.slice(0, MAX_STDIN_LENGTH)
           : typeof body.stdin === 'string'
@@ -622,10 +631,33 @@ export const Assessments: CollectionConfig = {
         }
 
         if (!isCorrectOutput(task, output)) {
-          await updateAssessment(req, assessment.id, {
-            wrongAnswers: (assessment.wrongAnswers ?? 0) + 1,
-          })
+          // A failed re-check of an already solved task keeps the earlier saved answer.
+          if (!revisit) {
+            await updateAssessment(req, assessment.id, {
+              wrongAnswers: (assessment.wrongAnswers ?? 0) + 1,
+            })
+          }
           return Response.json({ correct: false })
+        }
+
+        // Improved code for an already solved task: replace its saved result, nothing else.
+        if (revisit) {
+          const existing = assessment.taskResults ?? []
+          const entry = {
+            taskNumber: index + 1,
+            taskTitle: task.title || `Task ${index + 1}`,
+            languageLabel: language.label,
+            code,
+            output: output.slice(0, MAX_STDIN_LENGTH),
+            solvedAt: new Date().toISOString(),
+          }
+          const position = existing.findIndex((result) => result.taskNumber === index + 1)
+          const taskResults =
+            position >= 0
+              ? existing.map((result, i) => (i === position ? { ...result, ...entry } : result))
+              : [...existing, entry].sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0))
+          const revised = await updateAssessment(req, assessment.id, { taskResults })
+          return Response.json({ correct: true, state: publicTaskState(revised) })
         }
 
         // Keep this task's code and output so the admin can review every task, not just the
@@ -695,7 +727,7 @@ export const Assessments: CollectionConfig = {
                 initCollapsed: true,
                 components: { RowLabel: '/components/admin/TaskRowLabel#TaskRowLabel' },
                 description:
-                  'Optional. Add 2 or more tasks. The candidates code must print the expected output for a task before the next one appears. The time limit is shared across all tasks. If you add tasks here, the single task above is ignored.',
+                  'Optional. Add 2 or more tasks. The candidate\u2019s code must print the expected output for a task before the next one appears. The time limit is shared across all tasks. If you add tasks here, the single task above is ignored.',
               },
               fields: [
                 {
@@ -992,19 +1024,6 @@ export const Assessments: CollectionConfig = {
         readOnly: true,
         condition: (data) => Boolean(data?.applicant),
         description: 'Set by picking an existing applicant in the Candidate email field above.',
-      },
-    },
-    {
-      name: 'applicantPasswordSet',
-      label: 'Candidate set their own password',
-      type: 'checkbox',
-      virtual: 'applicant.passwordSet',
-      admin: {
-        position: 'sidebar',
-        readOnly: true,
-        condition: (data) => Boolean(data?.applicant),
-        description:
-          'Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).',
       },
     },
     {

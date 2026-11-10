@@ -508,7 +508,7 @@ export interface Assessment {
     [k: string]: unknown;
   } | null;
   /**
-   * Optional. Add 2 or more tasks. The candidates code must print the expected output for a task before the next one appears. The time limit is shared across all tasks. If you add tasks here, the single task above is ignored.
+   * Optional. Add 2 or more tasks. The candidate’s code must print the expected output for a task before the next one appears. The time limit is shared across all tasks. If you add tasks here, the single task above is ignored.
    */
   tasks?:
     | {
@@ -618,10 +618,6 @@ export interface Assessment {
    * Set by picking an existing applicant in the Candidate email field above.
    */
   applicant?: (number | null) | Applicant;
-  /**
-   * Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).
-   */
-  applicantPasswordSet?: boolean | null;
   applicantPassword?: string | null;
   /**
    * Use "Reset assessment" above to let the candidate retake the test.
@@ -1347,7 +1343,6 @@ export interface AssessmentsSelect<T extends boolean = true> {
   feedback?: T;
   result?: T;
   applicant?: T;
-  applicantPasswordSet?: T;
   applicantPassword?: T;
   status?: T;
   token?: T;
