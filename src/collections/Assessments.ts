@@ -68,6 +68,27 @@ const ANSWER_GRACE_MS = 30_000
 const MAX_CODE_LENGTH = 64 * 1024
 const MAX_STDIN_LENGTH = 16 * 1024
 
+// Compares program output: line endings and trailing spaces/blank lines are ignored.
+const normalizeOutput = (value: string, caseSensitive: boolean) => {
+  const cleaned = value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim()
+  return caseSensitive ? cleaned : cleaned.toLowerCase()
+}
+
+const isCorrectOutput = (task: TaskRow, output: string) => {
+  const caseSensitive = Boolean(task.caseSensitive)
+  const actual = normalizeOutput(output, caseSensitive)
+  if (!actual) return false
+  const accepted = (task.acceptedAnswers ?? []).filter((row) => row.answer?.trim())
+  // No expected output set: any output from code that ran is accepted (the admin reviews it).
+  if (accepted.length === 0) return true
+  return accepted.some((row) => normalizeOutput(row.answer ?? '', caseSensitive) === actual)
+}
+
 // What the candidate is allowed to see: only the tasks up to (and including) the current one.
 const publicTaskState = (assessment: TaskAssessment) => {
   const tasks = assessment.tasks ?? []
@@ -597,9 +618,11 @@ export const Assessments: CollectionConfig = {
             ? body.stdin.slice(0, MAX_STDIN_LENGTH)
             : ''
 
-        let result
+        let output = ''
         try {
-          result = await runCode({ languageId: language.id, sourceCode: code, stdin })
+          const result = await runCode({ languageId: language.id, sourceCode: code, stdin })
+          // A compile error never counts, even if some text was printed.
+          output = result.compileOutput ? '' : (result.stdout ?? '')
         } catch {
           return Response.json(
             { error: 'The code runner is unavailable right now. Please try again.' },

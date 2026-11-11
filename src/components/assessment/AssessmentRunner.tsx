@@ -64,7 +64,7 @@ type TaskState = {
   finished: boolean
   tasks: { title: string; prompt: unknown; code?: string | null; languageLabel?: string | null }[]
 }
-type AnswerStatus = 'idle' | 'checking' | 'correct' | 'error'
+type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
 
 // A task's code, kept per language so switching language never loses what was written.
 type Draft = { languageId: number; codes: Record<number, string> }
@@ -119,8 +119,6 @@ const TaskPanel = ({
   const active = view < state.total ? state.tasks[view] : null
   const isLast = state.current + 1 >= state.total
 
-  if (!task) return null
-
   return (
     <div className="taskPanel">
       <p className="eyebrow">
@@ -166,7 +164,7 @@ const TaskPanel = ({
         </div>
       )}
 
-      {!state.finished && (
+      {active && (
         <>
           <h2>{active.title}</h2>
           <RichText data={active.prompt as never} />
@@ -713,10 +711,8 @@ export const AssessmentRunner = ({
 
     try {
       const res = await fetch(`${base}/start`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        throw new Error(data?.error ?? 'Could not start the test. Please try again.')
-      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Could not start the test.')
 
       setDeadline(data.deadline)
       setResume({ code: data.code, languageId: data.languageId })
@@ -941,9 +937,9 @@ export const AssessmentRunner = ({
                   <h2>Before you begin</h2>
                   <ul className="assessmentRules">
                     <li>
-                      Some tests have several tasks. Run your code, then press Done / Submit — the
-                      next task appears once your code runs without errors. The time limit covers
-                      all tasks together.
+                      Some tests have several tasks. Your program&apos;s output must match the
+                      expected output before the next task appears (press Done / Submit to check).
+                      The time limit covers all tasks together.
                     </li>
                     <li>
                       Switching to another tab, window or app is recorded, along with how long you
