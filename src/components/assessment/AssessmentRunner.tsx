@@ -64,7 +64,7 @@ type TaskState = {
   finished: boolean
   tasks: { title: string; prompt: unknown; code?: string | null; languageLabel?: string | null }[]
 }
-type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
+type AnswerStatus = 'idle' | 'checking' | 'correct' | 'error'
 
 // A task's code, kept per language so switching language never loses what was written.
 type Draft = { languageId: number; codes: Record<number, string> }
@@ -173,8 +173,8 @@ const TaskPanel = ({
             <>
               <p className="muted" style={{ marginTop: '1rem' }}>
                 You&apos;re revisiting a task you already solved. Edit and run your code, then press
-                &ldquo;Done / Submit&rdquo; to replace your saved answer. If the new output
-                doesn&apos;t match, your earlier saved answer is kept.
+                &ldquo;Done / Submit&rdquo; to replace your saved answer. If your new code
+                doesn&apos;t run successfully, your earlier saved answer is kept.
               </p>
               <button
                 className="button button--outline"
@@ -186,21 +186,14 @@ const TaskPanel = ({
             </>
           ) : (
             <p className="muted" style={{ marginTop: '1rem' }}>
-              Write your code and run it. When your program prints the expected output, press
-              &ldquo;Done / Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
+              Write your code and run it. Once it runs without errors, press &ldquo;Done /
+              Submit&rdquo; to {isLast ? 'finish' : 'move on to the next task'}.
             </p>
           )}
 
           {status === 'checking' && (
             <p className="muted" role="status">
               Checking your output…
-            </p>
-          )}
-          {status === 'wrong' && (
-            <p className="assessmentError" role="alert">
-              {revisiting
-                ? "Your output doesn't match, so your earlier saved answer for this task is kept."
-                : "Your output doesn't match the expected output yet. Run your code, check the result and try again — your time keeps running."}
             </p>
           )}
           {status === 'error' && message && (
@@ -649,7 +642,11 @@ export const AssessmentRunner = ({
         setAnswerStatus('correct')
         return data.state as TaskState
       }
-      setAnswerStatus('wrong')
+      // The server only rejects an answer when the code didn't run cleanly, so show why.
+      setAnswerStatus('error')
+      setAnswerMessage(
+        data.error ?? "Your code didn't run successfully. Fix the errors and run it again.",
+      )
       return null
     } catch {
       setAnswerStatus('error')
@@ -711,8 +708,10 @@ export const AssessmentRunner = ({
 
     try {
       const res = await fetch(`${base}/start`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Could not start the test.')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data) {
+        throw new Error(data?.error ?? 'Could not start the test. Please try again.')
+      }
 
       setDeadline(data.deadline)
       setResume({ code: data.code, languageId: data.languageId })
@@ -937,9 +936,9 @@ export const AssessmentRunner = ({
                   <h2>Before you begin</h2>
                   <ul className="assessmentRules">
                     <li>
-                      Some tests have several tasks. Your program&apos;s output must match the
-                      expected output before the next task appears (press Done / Submit to check).
-                      The time limit covers all tasks together.
+                      Some tests have several tasks. Run your code, then press Done / Submit — the
+                      next task appears once your code runs without errors. The time limit covers
+                      all tasks together.
                     </li>
                     <li>
                       Switching to another tab, window or app is recorded, along with how long you

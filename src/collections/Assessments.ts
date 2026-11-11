@@ -68,27 +68,6 @@ const ANSWER_GRACE_MS = 30_000
 const MAX_CODE_LENGTH = 64 * 1024
 const MAX_STDIN_LENGTH = 16 * 1024
 
-// Compares program output: line endings and trailing spaces/blank lines are ignored.
-const normalizeOutput = (value: string, caseSensitive: boolean) => {
-  const cleaned = value
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trim()
-  return caseSensitive ? cleaned : cleaned.toLowerCase()
-}
-
-const isCorrectOutput = (task: TaskRow, output: string) => {
-  const caseSensitive = Boolean(task.caseSensitive)
-  const actual = normalizeOutput(output, caseSensitive)
-  if (!actual) return false
-  const accepted = (task.acceptedAnswers ?? []).filter((row) => row.answer?.trim())
-  // No expected output set: any output from code that ran is accepted (the admin reviews it).
-  if (accepted.length === 0) return true
-  return accepted.some((row) => normalizeOutput(row.answer ?? '', caseSensitive) === actual)
-}
-
 // What the candidate is allowed to see: only the tasks up to (and including) the current one.
 const publicTaskState = (assessment: TaskAssessment) => {
   const tasks = assessment.tasks ?? []
@@ -289,8 +268,10 @@ const isPastDeadline = (assessment: TaskAssessment) => {
 }
 
 // Called from afterChange when the admin typed a password into "Candidate login password" and
-// saved. Creates (or claims a passwordless) applicant account and links it to the assessment, so
-// the candidate can sign in with that password and go straight to the exam.
+// saved. Creates (or claims a passwordless) applicant account and links it to the assessment.
+// That password is a master key, not the candidate's own — passwordSet stays false so the
+// emailed link sends them to set their own password (and `applicantPasswordSet` in the admin
+// shows unchecked until they do).
 const createApplicantLogin = async (
   req: PayloadRequest,
   assessment: Assessment,
@@ -319,7 +300,7 @@ const createApplicantLogin = async (
       applicant = await req.payload.update({
         collection: 'applicants',
         id: applicant.id,
-        data: { password, passwordSet: true, name: assessment.candidateName || applicant.name },
+        data: { password, passwordSet: false, name: assessment.candidateName || applicant.name },
         req,
       })
     } else {
@@ -329,7 +310,7 @@ const createApplicantLogin = async (
           email,
           name: assessment.candidateName || undefined,
           password,
-          passwordSet: true,
+          passwordSet: false,
           timeLimitMinutes: assessment.durationMinutes || DEFAULT_TIME_LIMIT_MINUTES,
         },
         req,
@@ -343,7 +324,7 @@ const createApplicantLogin = async (
       req,
     })
 
-    await sendApplicantLoginCreated(req.payload, assessment, password)
+    await sendApplicantLoginCreated(req.payload, assessment)
   } catch (error) {
     req.payload.logger.warn({ err: error, msg: `Could not create applicant login for ${email}` })
   }
@@ -561,9 +542,10 @@ export const Assessments: CollectionConfig = {
     {
       // POST /api/assessments/by-token/:token/answer
       //   body: { taskIndex, code, languageId, stdin }
-      // The candidate's code is re-run on Judge0 here and its output is compared with the task's
-      // expected output. Only a match for the CURRENT task unlocks the next one; the time limit
-      // keeps running exactly as before.
+      // The candidate's code is re-run on Judge0 here. It counts as an answer when it runs to
+      // completion without a compile or runtime error. Only the CURRENT task unlocks the next
+      // one; an earlier, already solved task can be re-run to replace its saved code. The time
+      // limit keeps running exactly as before.
       path: '/by-token/:token/answer',
       method: 'post',
       handler: async (req) => {
@@ -618,11 +600,9 @@ export const Assessments: CollectionConfig = {
             ? body.stdin.slice(0, MAX_STDIN_LENGTH)
             : ''
 
-        let output = ''
+        let result
         try {
-          const result = await runCode({ languageId: language.id, sourceCode: code, stdin })
-          // A compile error never counts, even if some text was printed.
-          output = result.compileOutput ? '' : (result.stdout ?? '')
+          result = await runCode({ languageId: language.id, sourceCode: code, stdin })
         } catch {
           return Response.json(
             { error: 'The code runner is unavailable right now. Please try again.' },
@@ -630,15 +610,26 @@ export const Assessments: CollectionConfig = {
           )
         }
 
-        if (!isCorrectOutput(task, output)) {
+        // The task advances as long as the code runs cleanly — a mismatch with the expected
+        // output no longer blocks progress (reviewers compare the saved output themselves). Only
+        // a compile error, runtime error or timeout keeps the candidate where they are.
+        // Judge0 status 3 = Accepted (ran to completion, exit 0, no compile/runtime error).
+        if (result.status.id !== 3) {
           // A failed re-check of an already solved task keeps the earlier saved answer.
           if (!revisit) {
             await updateAssessment(req, assessment.id, {
               wrongAnswers: (assessment.wrongAnswers ?? 0) + 1,
             })
           }
-          return Response.json({ correct: false })
+          return Response.json({
+            correct: false,
+            error: revisit
+              ? `Your code didn't run successfully (${result.status.description}), so your earlier saved answer for this task is kept.`
+              : `Your code didn't run successfully (${result.status.description}). Fix the errors and run it again — your time keeps running.`,
+          })
         }
+
+        const output = result.stdout ?? ''
 
         // Improved code for an already solved task: replace its saved result, nothing else.
         if (revisit) {
@@ -651,10 +642,10 @@ export const Assessments: CollectionConfig = {
             output: output.slice(0, MAX_STDIN_LENGTH),
             solvedAt: new Date().toISOString(),
           }
-          const position = existing.findIndex((result) => result.taskNumber === index + 1)
+          const position = existing.findIndex((item) => item.taskNumber === index + 1)
           const taskResults =
             position >= 0
-              ? existing.map((result, i) => (i === position ? { ...result, ...entry } : result))
+              ? existing.map((item, i) => (i === position ? { ...item, ...entry } : item))
               : [...existing, entry].sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0))
           const revised = await updateAssessment(req, assessment.id, { taskResults })
           return Response.json({ correct: true, state: publicTaskState(revised) })
@@ -877,7 +868,7 @@ export const Assessments: CollectionConfig = {
               ],
             },
             {
-              // One entry per task, saved when the candidate's output matched.
+              // One entry per task, saved when the candidate's code ran successfully.
               name: 'taskResults',
               label: 'Solved tasks',
               type: 'array',
@@ -1024,6 +1015,19 @@ export const Assessments: CollectionConfig = {
         readOnly: true,
         condition: (data) => Boolean(data?.applicant),
         description: 'Set by picking an existing applicant in the Candidate email field above.',
+      },
+    },
+    {
+      name: 'applicantPasswordSet',
+      label: 'Candidate set their own password',
+      type: 'checkbox',
+      virtual: 'applicant.passwordSet',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        condition: (data) => Boolean(data?.applicant),
+        description:
+          'Unchecked means they are still on the initial password you set below (or never set one — self-signed-up candidates set their own from the start).',
       },
     },
     {
