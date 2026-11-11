@@ -66,6 +66,9 @@ type TaskState = {
 }
 type AnswerStatus = 'idle' | 'checking' | 'correct' | 'wrong' | 'error'
 
+// A task's code, kept per language so switching language never loses what was written.
+type Draft = { languageId: number; codes: Record<number, string> }
+
 const screenShareMessages: Partial<Record<ScreenShare, string>> = {
   denied:
     'Screen sharing was cancelled or blocked. Click the button and choose your entire screen.',
@@ -266,7 +269,7 @@ export const AssessmentRunner = ({
   // "save changes?" prompt. Holds the task they were heading to.
   const [pendingNav, setPendingNav] = useState<number | null>(null)
   const [seed, setSeed] = useState<{
-    code: string | null
+    codes: Record<number, string>
     languageId: number | null
     key: number
   } | null>(null)
@@ -284,8 +287,11 @@ export const AssessmentRunner = ({
   const queueRef = useRef<ClientEvent[]>([])
   const flushChainRef = useRef<Promise<void>>(Promise.resolve())
   const finishedRef = useRef(false)
-  // Code of the tasks the candidate has left, so going back and forth never loses work.
-  const draftsRef = useRef(new Map<number, { code: string; languageId: number }>())
+  // Code of the tasks the candidate has left (per language), so going back and forth — or
+  // switching language — never loses work.
+  const draftsRef = useRef(new Map<number, Draft>())
+  // Code of the languages the candidate has switched away from in the task currently on screen.
+  const buffersRef = useRef<Record<number, string>>({})
   const seedKeyRef = useRef(0)
   const revisitingRef = useRef(false)
   const taskStateRef = useRef<TaskState | null>(null)
@@ -546,20 +552,22 @@ export const AssessmentRunner = ({
   const languageIdFromLabel = (label?: string | null) =>
     label ? languages.find((language) => language.label === label)?.id : undefined
 
-  // What the editor should show when opening a task: the candidate's own unsaved draft, else the
-  // code saved when they solved it, else a fresh editor for a task they haven't started.
-  const seedFor = (target: number, state: TaskState) => {
+  // What the editor should show when opening a task: the candidate's own unsaved draft (every
+  // language they used), else the code saved when they solved it, else a fresh editor for a task
+  // they haven't started.
+  const seedFor = (
+    target: number,
+    state: TaskState,
+  ): { codes: Record<number, string>; languageId: number | null } => {
     const index = target >= state.total ? state.total - 1 : target
     const draft = draftsRef.current.get(index)
-    if (draft) return { code: draft.code, languageId: draft.languageId }
+    if (draft) return { codes: { ...draft.codes }, languageId: draft.languageId }
     const saved = state.tasks[index]
     if (index < state.current && saved?.code) {
-      return {
-        code: saved.code,
-        languageId: languageIdFromLabel(saved.languageLabel) ?? languageIdRef.current,
-      }
+      const savedLanguage = languageIdFromLabel(saved.languageLabel) ?? languageIdRef.current
+      return { codes: { [savedLanguage]: saved.code }, languageId: savedLanguage }
     }
-    return { code: null, languageId: languageIdRef.current }
+    return { codes: {}, languageId: languageIdRef.current }
   }
 
   // Switches to another unlocked task. The task being left keeps whatever is in the editor.
@@ -574,11 +582,13 @@ export const AssessmentRunner = ({
     const next = Math.max(0, Math.min(target, state.current))
     if (next === view && state === taskState) return
 
-    // Leaving a solved task whose code was changed: ask whether to save the change first.
+    // Leaving a solved task whose code (or language) was changed: ask whether to save first.
     if (!options.skipPrompt && view < state.current) {
-      const saved = state.tasks[view]?.code
-      const now = editorRef.current?.getValue()
-      if (saved != null && now != null && now !== saved) {
+      const saved = state.tasks[view]
+      const savedLanguage = languageIdFromLabel(saved?.languageLabel)
+      const languageChanged = savedLanguage != null && savedLanguage !== languageIdRef.current
+      const current = editorRef.current?.getValue()
+      if (saved?.code != null && current != null && (current !== saved.code || languageChanged)) {
         setPendingNav(next)
         return
       }
@@ -589,14 +599,18 @@ export const AssessmentRunner = ({
       draftsRef.current.delete(leaving)
     } else if (editorRef.current) {
       draftsRef.current.set(leaving, {
-        code: editorRef.current.getValue(),
         languageId: languageIdRef.current,
+        codes: {
+          ...buffersRef.current,
+          [languageIdRef.current]: editorRef.current.getValue(),
+        },
       })
     }
     void flush() // save the current task's code before it stops being autosaved
 
     const nextSeed = seedFor(next, state)
     if (nextSeed.languageId) languageIdRef.current = nextSeed.languageId
+    buffersRef.current = { ...nextSeed.codes }
     seedKeyRef.current += 1
     setSeed({ ...nextSeed, key: seedKeyRef.current })
     setView(next)
@@ -722,7 +736,7 @@ export const AssessmentRunner = ({
       if (revisitingRef.current && tasksNow) {
         const draft = draftsRef.current.get(Math.min(tasksNow.current, tasksNow.total - 1))
         if (draft) {
-          code = draft.code
+          code = draft.codes[draft.languageId] ?? code
           submitLanguageId = draft.languageId
         }
       }
@@ -1125,12 +1139,16 @@ export const AssessmentRunner = ({
             )}
           </aside>
           <CodePlayground
-            initialCode={seed ? seed.code : resume?.code}
+            initialCode={seed ? undefined : resume?.code}
+            initialCodes={seed?.codes}
             initialLanguageId={seed ? seed.languageId : resume?.languageId}
             key={seed?.key ?? 0}
             modelPrefix={`assessment-${token}-${seed?.key ?? 0}`}
             onEditorMount={handleEditorMount}
             onLanguageChange={(id) => (languageIdRef.current = id)}
+            onLanguageSwitch={(from, code) => {
+              buffersRef.current[from] = code
+            }}
             onRun={(status) => record('code_run', { detail: status })}
             onStdinChange={(value) => (stdinRef.current = value)}
           />
