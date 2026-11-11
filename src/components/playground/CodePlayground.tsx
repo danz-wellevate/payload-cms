@@ -25,11 +25,16 @@ export type PlaygroundEditor = Parameters<OnMount>[0]
 type Props = {
   // Restores a previous draft (e.g. an assessment autosave) for this language.
   initialCode?: string | null
+  // Restores a draft per language (languageId -> code). Takes priority over initialCode, so
+  // switching language after a remount still shows what was written in that language.
+  initialCodes?: Record<number, string>
   initialLanguageId?: number | null
   // Namespaces Monaco models so drafts from different pages don't mix.
   modelPrefix?: string
   onEditorMount?: (editor: PlaygroundEditor) => void
   onLanguageChange?: (languageId: number) => void
+  // Fired just before the language changes, with the language being left and its current code.
+  onLanguageSwitch?: (fromLanguageId: number, code: string) => void
   // Called after each run with the Judge0 status (or an error message).
   onRun?: (status: string) => void
   onStdinChange?: (stdin: string) => void
@@ -37,10 +42,12 @@ type Props = {
 
 export const CodePlayground = ({
   initialCode,
+  initialCodes,
   initialLanguageId,
   modelPrefix = 'playground',
   onEditorMount,
   onLanguageChange,
+  onLanguageSwitch,
   onRun,
   onStdinChange,
 }: Props) => {
@@ -95,6 +102,14 @@ export const CodePlayground = ({
     setOutput(null)
   }
 
+  // What a language's editor starts with the first time it is shown in this mount.
+  const defaultValueFor = () => {
+    const draft = initialCodes?.[language.id]
+    if (draft != null) return draft
+    if (initialCode && language.id === initialLanguageId) return initialCode
+    return language.starter
+  }
+
   return (
     <div className="playground__main">
       <div className="playground__ide">
@@ -103,8 +118,11 @@ export const CodePlayground = ({
             aria-label="Language"
             className="playground__select"
             onChange={(e) => {
-              setLanguageId(Number(e.target.value))
-              onLanguageChange?.(Number(e.target.value))
+              const next = Number(e.target.value)
+              // Hand the code of the language being left to the parent before it is hidden.
+              onLanguageSwitch?.(languageId, editorRef.current?.getValue() ?? '')
+              setLanguageId(next)
+              onLanguageChange?.(next)
               setOutput(null)
             }}
             value={languageId}
@@ -132,9 +150,7 @@ export const CodePlayground = ({
         </div>
         {/* Monaco keeps one model per path, so each language keeps its own draft. */}
         <Editor
-          defaultValue={
-            initialCode && language.id === initialLanguageId ? initialCode : language.starter
-          }
+          defaultValue={defaultValueFor()}
           height="460px"
           language={language.monaco}
           loading={<div className="playground__loading">Loading editor…</div>}
